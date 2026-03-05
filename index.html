@@ -8,10 +8,27 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: linear-gradient(180deg, #f5e6d3 0%, #f3d5e8 40%, #e8c5f0 70%, #f4a8a8 100%);
+            font-family: 'Saans SemiMono-TRIAL', -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+            background: #FFFCF4;
             min-height: 100vh;
-            padding-bottom: 100px;
+            padding-bottom: 140px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Radial gradient at bottom */
+        body::before {
+            content: '';
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, #FB7B41, #FF9CFA, #BAB1EA, rgba(186, 177, 234, 0),#FFFCF4);
+            border-radius: 50%;
+            z-index: 0;
+            pointer-events: none;
         }
         
         .header {
@@ -19,34 +36,62 @@
             top: 0;
             left: 0;
             right: 0;
-            background: rgba(245, 230, 211, 0.95);
             padding: 20px;
             z-index: 40;
-            border-bottom: 1px solid rgba(200, 180, 160, 0.3);
         }
         
         .header-top { display: flex; justify-content: space-between; margin-bottom: 15px; }
-        .header-title { font-size: 32px; font-family: Georgia, serif; color: #2d2d2d; font-weight: 400; }
-        .header-subtitle { color: #666; font-size: 13px; }
-        .header-time { text-align: right; font-size: 12px; color: #888; }
+        .header-title { font-size: 40px; font-family: 'Tobias-TRIAL', Georgia, serif; color: #1e1e1e; font-weight: 200; letter-spacing: -0.5px;}
+        .header-subtitle { color: #1e1e1e; font-size: 14px; }
+        .header-time { text-align: right; font-size: 12px; color: #1e1e1e; }
         
+        /* Header card container */
+        .header-card {
+            background: rgba(216, 207, 182, 0.4);
+            backdrop-filter: blur(10px);
+            border: 0.5px solid rgba(255, 240, 220, 0.6);
+            border-radius: 24px;
+            padding: 16px;
+            margin-top: 8px;
+            position: relative;
+            z-index: 41;
+        }
+        
+        .progress-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
         .progress-bar {
-            height: 8px;
-            background: #d4c4b4;
+            flex: 1;
+            height: 20px;
+            background: #D8CFB6;
             border-radius: 10px;
             overflow: hidden;
-            margin-bottom: 15px;
         }
         
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #f5a86e 0%, #ec8fc1 50%, #b584d4 100%);
+            border-radius: 999px;
+            background: linear-gradient(90deg, #FB7B41 0%, #FF9CFA 50%, #BAB1EA 100%);
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #8b7355;
+            font-weight: 500;
+            min-width: 80px;
+            white-space: nowrap;
         }
         
         .tabs {
             display: flex;
             gap: 8px;
             margin-bottom: 12px;
+            flex-wrap: wrap;
         }
         
         .tab {
@@ -56,75 +101,145 @@
             font-weight: 600;
             border: none;
             cursor: pointer;
-            background: #d4c4b4;
-            color: #666;
+            background: #D8CFB6;
+            color: #1e1e1e;
             transition: all 0.2s;
         }
         
         .tab.active {
-            background: linear-gradient(90deg, #f5a86e, #ec8fc1);
+            background: linear-gradient(90deg, #FB7B41, #FF9CFA, #BAB1EA);
+            color: #FFFCF4;
+        }
+
+        /* Tag filter */
+        .tag-filter {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 0;
+        }
+
+        .filter-tag {
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            background: #D8CFB6;
+            color: #1e1e1e;
+            transition: all 0.2s;
+        }
+
+        .filter-tag.active {
+            background: #FB7B41;
             color: white;
+        }
+
+        .filter-tag.active-home {
+            background: #d4b5f0;
+            color: #5a3a7a;
+        }
+
+        .filter-tag.active-misc {
+            background: #f0b5d4;
+            color: #7a3a5a;
         }
         
         .content {
-            padding-top: 200px;
+            padding-top: 240px;
             padding-left: 20px;
             padding-right: 20px;
+            position: relative;
+            z-index: 10;
         }
         
         .task-item {
-            background: #ede8e3;
-            border-radius: 16px;
-            padding: 12px 16px;
+            background: #D8CFB6;
+            border-radius: 160px;
+            padding: 20px 20px;
             margin-bottom: 12px;
             display: flex;
             gap: 12px;
-            align-items: flex-start;
+            align-items: center;
+            touch-action: pan-y;
+            cursor: grab;
+            position: relative;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .task-item.swiped {
+            border-color: #FB7B41;
         }
         
-        .task-checkbox {
-            width: 20px;
-            height: 20px;
-            border: 2px solid #c4a894;
+        .task-dot {
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
             flex-shrink: 0;
             cursor: pointer;
-            margin-top: 2px;
+            transition: all 0.2s;
         }
+
+        .dot-school { background: #FB7B41; }
+        .dot-home { background: #d4b5f0; }
+        .dot-misc { background: #f0b5d4; }
         
         .task-content { flex: 1; min-width: 0; }
-        .task-name { color: #2d2d2d; font-weight: 500; font-size: 14px; }
-        .task-notes { color: #888; font-size: 12px; margin-top: 3px; }
+        .task-name { color: #1e1e1e; font-weight: 500; font-size: 14px; }
+        .task-notes { color: #1e1e1e; font-size: 12px; margin-top: 3px; opacity: 0.7; }
         
-        .task-tag {
-            display: inline-block;
-            font-size: 11px;
-            padding: 4px 10px;
-            border-radius: 12px;
-            margin-left: 8px;
-            font-weight: 600;
-            white-space: nowrap;
+        .task-actions {
+            margin-top: 12px;
+            display: none;
+            gap: 8px;
         }
-        
-        .tag-school { background: #f5a86e; color: white; }
-        .tag-home { background: #d4b5f0; color: #5a3a7a; }
-        .tag-misc { background: #f0b5d4; color: #7a3a5a; }
+
+        .task-item.swiped .task-actions {
+            display: flex;
+        }
+
+        .btn-action {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-reschedule {
+            background: #FB7B41;
+            color: white;
+        }
+
+        .btn-reschedule:active {
+            opacity: 0.8;
+        }
         
         .add-button {
             position: fixed;
-            bottom: 20px;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
             width: 60px;
             height: 60px;
-            background: radial-gradient(circle, #ffb8a8, #f5a86e);
+            background: radial-gradient(circle, #ffb8a8, #FB7B41);
             border: none;
             border-radius: 50%;
             color: white;
             font-size: 32px;
             cursor: pointer;
-            box-shadow: 0 8px 24px rgba(245, 168, 110, 0.3);
+            box-shadow: 0 8px 24px rgba(251, 123, 65, 0.4);
             z-index: 30;
+            transition: all 0.2s;
+        }
+
+        .add-button:active {
+            transform: translateX(-50%) scale(0.95);
         }
         
         .modal {
@@ -145,27 +260,52 @@
             padding: 28px 24px;
             max-height: 90vh;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
         
-        .modal-title { font-size: 22px; font-family: Georgia, serif; color: #2d2d2d; margin-bottom: 20px; }
+        .modal-title { font-size: 22px; font-family: 'Tobias-TRIAL', Georgia, serif; color: #1e1e1e; margin-bottom: 20px; font-weight: 200; }
         
         .form-group { margin-bottom: 16px; }
         .form-label { font-size: 12px; font-weight: 600; color: #666; margin-bottom: 6px; display: block; text-transform: uppercase; }
-        .form-input, .form-textarea { width: 100%; padding: 12px 16px; border-radius: 12px; background: #d4c4b4; border: none; color: #2d2d2d; font-family: inherit; }
+        .form-input, .form-textarea { width: 100%; padding: 12px 16px; border-radius: 12px; background: #D8CFB6; border: none; color: #1e1e1e; font-family: inherit; }
         .form-textarea { height: 80px; resize: none; }
         
         .quick-tags { display: flex; gap: 8px; flex-wrap: wrap; }
-        .quick-tag { padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; background: #d4c4b4; color: #666; transition: all 0.2s; }
-        .quick-tag.active-school { background: #f5a86e; color: white; }
+        .quick-tag { padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; background: #D8CFB6; color: #666; transition: all 0.2s; }
+        .quick-tag.active-school { background: #FB7B41; color: white; }
         .quick-tag.active-home { background: #d4b5f0; color: #5a3a7a; }
         .quick-tag.active-misc { background: #f0b5d4; color: #7a3a5a; }
         
         .modal-buttons { display: flex; gap: 8px; margin-top: 20px; }
         .modal-buttons button { flex: 1; padding: 12px 16px; border: none; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer; }
-        .btn-cancel { background: #d4c4b4; color: #2d2d2d; }
-        .btn-submit { background: linear-gradient(90deg, #f5a86e, #ec8fc1); color: white; }
+        .btn-cancel { background: #D8CFB6; color: #1e1e1e; }
+        .btn-submit { background: linear-gradient(90deg, #FB7B41, #FF9CFA); color: white; }
         
         .empty { text-align: center; padding: 40px 20px; color: #999; }
+
+        /* Reschedule modal */
+        .quick-options {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .quick-option {
+            padding: 8px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            background: #F0B5D4;
+            color: #7a3a5a;
+            transition: all 0.2s;
+        }
+
+        .quick-option:active {
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
@@ -180,13 +320,22 @@
                 <div id="date">03.04.26</div>
             </div>
         </div>
-        <div class="progress-bar">
-            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-        </div>
-        <div class="tabs">
-            <button class="tab active" onclick="app.setView('today')">TODAY</button>
-            <button class="tab" onclick="app.setView('scheduled')">SCHEDULED</button>
-            <button class="tab" onclick="app.setView('complete')">COMPLETE</button>
+        
+        <div class="header-card">
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text" id="progressText">0/0 tasks done today</div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab" onclick="app.setView('scheduled')">SCHEDULED</button>
+                <button class="tab active" onclick="app.setView('today')">TODAY</button>
+                <button class="tab" onclick="app.setView('complete')">COMPLETE</button>
+            </div>
+
+            <div class="tag-filter" id="tagFilter"></div>
         </div>
     </div>
     
@@ -219,16 +368,36 @@
         </div>
     </div>
 
+    <div class="modal" id="rescheduleModal">
+        <div class="modal-content">
+            <h2 class="modal-title">Reschedule Task</h2>
+            <div class="quick-options" id="quickOptions"></div>
+            <div class="form-group">
+                <label class="form-label">Choose a date...</label>
+                <input type="date" id="rescheduleDate" class="form-input">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="app.closeRescheduleModal()">Cancel</button>
+                <button class="btn-submit" onclick="app.confirmReschedule()">Reschedule</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const app = {
             tasks: [],
             view: 'today',
             selectedTags: [],
+            swipedTaskId: null,
+            touchStartX: null,
+            touchStartY: null,
             
             init() {
                 this.loadTasks();
                 this.updateTime();
                 this.setupTagButtons();
+                this.setupTagFilter();
+                this.setupRescheduleOptions();
                 setInterval(() => this.updateTime(), 1000);
                 setInterval(() => this.render(), 5000);
                 this.render();
@@ -259,6 +428,7 @@
             
             setupTagButtons() {
                 const container = document.getElementById('tagButtons');
+                container.innerHTML = '';
                 ['home', 'school', 'misc'].forEach(tag => {
                     const btn = document.createElement('button');
                     btn.className = 'quick-tag';
@@ -269,29 +439,106 @@
                     container.appendChild(btn);
                 });
             },
+
+            setupTagFilter() {
+                const container = document.getElementById('tagFilter');
+                container.innerHTML = '';
+                const allTags = [...new Set(this.tasks.flatMap(t => t.tags || []))];
+                
+                allTags.forEach(tag => {
+                    const btn = document.createElement('button');
+                    btn.className = 'filter-tag';
+                    btn.textContent = tag;
+                    btn.onclick = () => {
+                        this.selectedTags = this.selectedTags.includes(tag)
+                            ? this.selectedTags.filter(t => t !== tag)
+                            : [...this.selectedTags, tag];
+                        this.render();
+                    };
+                    container.appendChild(btn);
+                });
+            },
+
+            setupRescheduleOptions() {
+                const container = document.getElementById('quickOptions');
+                container.innerHTML = '';
+                const options = [
+                    { label: 'Today', days: 0 },
+                    { label: 'Tomorrow', days: 1 },
+                    { label: 'This weekend', days: 6 },
+                    { label: 'Next week', days: 7 },
+                ];
+                
+                options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = 'quick-option';
+                    btn.textContent = opt.label;
+                    btn.onclick = () => {
+                        const date = new Date();
+                        date.setDate(date.getDate() + opt.days);
+                        document.getElementById('rescheduleDate').value = date.toISOString().split('T')[0];
+                    };
+                    container.appendChild(btn);
+                });
+            },
             
             setView(view) {
                 this.view = view;
+                this.selectedTags = [];
                 this.render();
                 document.querySelectorAll('.tab').forEach((btn, i) => {
-                    btn.classList.toggle('active', (i === 0 && view === 'today') || (i === 1 && view === 'scheduled') || (i === 2 && view === 'complete'));
+                    btn.classList.toggle('active', (i === 1 && view === 'today') || (i === 0 && view === 'scheduled') || (i === 2 && view === 'complete'));
                 });
             },
             
             getFilteredTasks() {
-                return this.tasks.filter(t => {
-                    if (this.view === 'today') return !t.completed && t.date === this.getToday();
-                    if (this.view === 'scheduled') return !t.completed && t.date > this.getToday();
-                    if (this.view === 'complete') return t.completed;
-                    return true;
-                });
+                let tasks = this.tasks;
+
+                if (this.view === 'today') {
+                    tasks = tasks.filter(t => !t.completed && t.date === this.getToday());
+                } else if (this.view === 'scheduled') {
+                    tasks = tasks.filter(t => !t.completed && t.date > this.getToday());
+                } else if (this.view === 'complete') {
+                    tasks = tasks.filter(t => t.completed);
+                }
+
+                if (this.selectedTags.length > 0) {
+                    tasks = tasks.filter(t => this.selectedTags.some(tag => t.tags?.includes(tag)));
+                }
+
+                return tasks;
             },
             
             completeTask(id) {
                 const task = this.tasks.find(t => t.id === id);
                 if (task) {
-                    task.completed = !task.completed;
+                    task.completed = true;
                     this.saveTasks();
+                }
+            },
+
+            openRescheduleModal(taskId) {
+                this.swipedTaskId = taskId;
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    document.getElementById('rescheduleDate').value = task.date;
+                    document.getElementById('rescheduleModal').classList.add('show');
+                }
+            },
+
+            closeRescheduleModal() {
+                document.getElementById('rescheduleModal').classList.remove('show');
+                this.swipedTaskId = null;
+                this.render();
+            },
+
+            confirmReschedule() {
+                const newDate = document.getElementById('rescheduleDate').value;
+                const task = this.tasks.find(t => t.id === this.swipedTaskId);
+                if (task && newDate) {
+                    task.date = newDate;
+                    this.saveTasks();
+                    this.closeRescheduleModal();
                 }
             },
             
@@ -321,6 +568,7 @@
                         completed: false
                     });
                     this.saveTasks();
+                    this.setupTagFilter();
                     document.getElementById('taskName').value = '';
                     document.getElementById('taskNotes').value = '';
                     this.closeAddModal();
@@ -332,6 +580,39 @@
                 document.getElementById('time').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
                 document.getElementById('date').textContent = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
             },
+
+            setupSwipeListeners() {
+                const taskItems = document.querySelectorAll('.task-item');
+                taskItems.forEach(item => {
+                    let touchStartX = 0;
+                    let touchStartY = 0;
+
+                    item.addEventListener('touchstart', (e) => {
+                        touchStartX = e.touches[0].clientX;
+                        touchStartY = e.touches[0].clientY;
+                    }, { passive: true });
+
+                    item.addEventListener('touchend', (e) => {
+                        const touchEndX = e.changedTouches[0].clientX;
+                        const touchEndY = e.changedTouches[0].clientY;
+                        const diffX = touchStartX - touchEndX;
+                        const diffY = touchStartY - touchEndY;
+
+                        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+                            const taskId = parseInt(item.dataset.taskId);
+                            
+                            if (diffX > 0) {
+                                // Swipe left - reschedule
+                                this.openRescheduleModal(taskId);
+                                item.classList.add('swiped');
+                            } else {
+                                // Swipe right - complete
+                                this.completeTask(taskId);
+                            }
+                        }
+                    }, { passive: true });
+                });
+            },
             
             render() {
                 const tasks = this.getFilteredTasks();
@@ -339,23 +620,35 @@
                 
                 if (tasks.length === 0) {
                     list.innerHTML = '<div class="empty">No tasks</div>';
-                    return;
+                } else {
+                    list.innerHTML = tasks.map(task => {
+                        const dotClass = task.tags?.[0] ? `dot-${task.tags[0]}` : 'dot-school';
+                        return `
+                            <div class="task-item" data-task-id="${task.id}">
+                                <div class="task-dot ${dotClass}"></div>
+                                <div class="task-content">
+                                    <div class="task-name">${task.name}</div>
+                                    ${task.notes ? `<div class="task-notes">${task.notes}</div>` : ''}
+                                </div>
+                                <div class="task-actions">
+                                    <button class="btn-action btn-reschedule" onclick="app.openRescheduleModal(${task.id})">Reschedule</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
                 }
                 
+                // Update progress
                 const progress = this.tasks.filter(t => t.completed && t.date === this.getToday()).length;
                 const total = this.tasks.filter(t => t.date === this.getToday()).length;
                 document.getElementById('progressFill').style.width = total > 0 ? (progress / total * 100) + '%' : '0%';
-                
-                list.innerHTML = tasks.map(task => `
-                    <div class="task-item">
-                        <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} onchange="app.completeTask(${task.id})">
-                        <div class="task-content">
-                            <div class="task-name">${task.name}</div>
-                            ${task.notes ? `<div class="task-notes">${task.notes}</div>` : ''}
-                        </div>
-                        ${task.tags ? task.tags.map(tag => `<span class="task-tag tag-${tag}">${tag}</span>`).join('') : ''}
-                    </div>
-                `).join('');
+                document.getElementById('progressText').textContent = `${progress}/${total} tasks done today`;
+
+                // Update filter tags
+                this.setupTagFilter();
+
+                // Setup swipe listeners
+                setTimeout(() => this.setupSwipeListeners(), 0);
             }
         };
         
