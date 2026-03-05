@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Task App">
+    <title>Task App</title>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/react.production.min.js"></script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            user-select: none;
+        }
+        input, textarea, select {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+        @supports (padding: max(0px)) {
+            body {
+                padding-left: max(12px, env(safe-area-inset-left));
+                padding-right: max(12px, env(safe-area-inset-right));
+            }
+        }
+        html, body, #app {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        #app {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script>
+        const { useState, useRef, useEffect, useCallback } = React;
+
+        const TaskApp = () => {
+            const [tasks, setTasks] = useState([]);
+            const [view, setView] = useState('today');
+            const [showAddModal, setShowAddModal] = useState(false);
+            const [showDetailsModal, setShowDetailsModal] = useState(false);
+            const [selectedTask, setSelectedTask] = useState(null);
+            const [selectedTags, setSelectedTags] = useState([]);
+            const [sortOrder, setSortOrder] = useState('manual');
+            const [swipedTaskId, setSwipedTaskId] = useState(null);
+            const [longPressTaskId, setLongPressTaskId] = useState(null);
+            const [completedTodayCount, setCompletedTodayCount] = useState(0);
+
+            const touchStartX = useRef(null);
+            const touchStartY = useRef(null);
+            const longPressTimer = useRef(null);
+
+            useEffect(() => {
+                const saved = localStorage.getItem('tasks');
+                if (saved) {
+                    try {
+                        setTasks(JSON.parse(saved));
+                    } catch (e) {
+                        console.error('Failed to load tasks:', e);
+                    }
+                }
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                const today = new Date().toDateString();
+                const completedToday = tasks.filter(t => t.completed && new Date(t.completedAt).toDateString() === today).length;
+                setCompletedTodayCount(completedToday);
+            }, [tasks]);
+
+            const allTags = [...new Set(tasks.flatMap(t => t.tags || []))];
+
+            const getTodayDate = () => {
+                return new Date().toISOString().split('T')[0];
+            };
+
+            const isToday = (dateStr) => {
+                return dateStr === getTodayDate();
+            };
+
+            const isScheduled = (dateStr) => {
+                const taskDate = new Date(dateStr);
+                const today = new Date(getTodayDate());
+                return taskDate > today;
+            };
+
+            const filterTasks = (tasksToFilter) => {
+                let filtered = tasksToFilter;
+
+                if (view === 'today') {
+                    filtered = filtered.filter(t => isToday(t.scheduledDate) && !t.completed);
+                } else if (view === 'scheduled') {
+                    filtered = filtered.filter(t => isScheduled(t.scheduledDate) && !t.completed);
+                } else if (view === 'complete') {
+                    filtered = filtered.filter(t => t.completed);
+                }
+
+                if (selectedTags.length > 0) {
+                    filtered = filtered.filter(t => selectedTags.some(tag => t.tags?.includes(tag)));
+                }
+
+                return filtered;
+            };
+
+            const sortTasks = (tasksToSort) => {
+                const sorted = [...tasksToSort];
+                if (sortOrder === 'name') {
+                    sorted.sort((a, b) => a.name.localeCompare(b.name));
+                } else if (sortOrder === 'time') {
+                    sorted.sort((a, b) => new Date(a.reminder || a.scheduledDate) - new Date(b.reminder || b.scheduledDate));
+                }
+                return sorted;
+            };
+
+            const displayedTasks = sortTasks(filterTasks(tasks));
+
+            const handleAddTask = (newTask) => {
+                const task = {
+                    id: Date.now(),
+                    name: newTask.name,
+                    notes: newTask.notes,
+                    tags: newTask.tags,
+                    scheduledDate: newTask.scheduledDate,
+                    reminder: newTask.reminder,
+                    recurring: newTask.recurring,
+                    subtasks: newTask.subtasks || [],
+                    completed: false,
+                    order: tasks.length,
+                };
+                setTasks([...tasks, task]);
+                setShowAddModal(false);
+            };
+
+            const handleCompleteTask = (taskId) => {
+                setTasks(tasks.map(t => {
+                    if (t.id === taskId) {
+                        return { ...t, completed: true, completedAt: new Date().toISOString() };
+                    }
+                    return t;
+                }));
+                setSwipedTaskId(null);
+            };
+
+            const handleRescheduleTask = (taskId, newDate, newReminder) => {
+                setTasks(tasks.map(t => t.id === taskId ? { ...t, scheduledDate: newDate, reminder: newReminder } : t));
+                setSwipedTaskId(null);
+            };
+
+            const handleDeleteTask = (taskId) => {
+                setTasks(tasks.filter(t => t.id !== taskId));
+                setShowDetailsModal(false);
+            };
+
+            const handleUpdateTask = (taskId, updates) => {
+                setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
+                setShowDetailsModal(false);
+            };
+
+            const handleAddSubtask = (parentId, subtaskName) => {
+                const subtask = {
+                    id: Date.now(),
+                    name: subtaskName,
+                    completed: false,
+                    parentId,
+                };
+                setTasks([...tasks, { ...subtask, subtasks: [] }]);
+                setTasks(prev => prev.map(t => 
+                    t.id === parentId 
+                        ? { ...t, subtasks: [...(t.subtasks || []), subtask.id] }
+                        : t
+                ));
+            };
+
+            const handleTouchStart = (e, taskId) => {
+                touchStartX.current = e.touches[0].clientX;
+                touchStartY.current = e.touches[0].clientY;
+
+                longPressTimer.current = setTimeout(() => {
+                    setLongPressTaskId(taskId);
+                }, 500);
+            };
+
+            const handleTouchEnd = (e, taskId) => {
+                clearTimeout(longPressTimer.current);
+                setLongPressTaskId(null);
+
+                if (!touchStartX.current) return;
+
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndY = e.changedTouches[0].clientY;
+                const diffX = touchStartX.current - touchEndX;
+                const diffY = touchStartY.current - touchEndY;
+
+                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+                    if (diffX > 0) {
+                        setSwipedTaskId(taskId);
+                    } else {
+                        handleCompleteTask(taskId);
+                    }
+                }
+
+                touchStartX.current = null;
+                touchStartY.current = null;
+            };
+
+            const progressPercent = Math.min((completedTodayCount / Math.max(displayedTasks.length + completedTodayCount, 1)) * 100, 100);
+
+            return React.createElement('div', { className: 'min-h-screen bg-gradient-to-b from-orange-100 via-pink-200 to-purple-300 pb-32' },
+                React.createElement('div', { className: 'fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm z-40' },
+                    React.createElement('div', { className: 'flex justify-between items-start p-6 pt-8' },
+                        React.createElement('div', null,
+                            React.createElement('h1', { className: 'text-3xl font-serif text-gray-800' }, 'Hey, Bel.'),
+                            React.createElement('p', { className: 'text-gray-600 text-sm' }, 'Whatcha getting up to today?')
+                        ),
+                        React.createElement('div', { className: 'text-right text-xs text-gray-500' },
+                            React.createElement('p', { className: 'font-semibold' }, new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })),
+                            React.createElement('p', null, new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }))
+                        )
+                    ),
+                    view === 'today' && React.createElement('div', { className: 'px-6 pb-4' },
+                        React.createElement('div', { className: 'h-2 bg-gray-300 rounded-full overflow-hidden' },
+                            React.createElement('div', {
+                                className: 'h-full bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400 transition-all duration-300',
+                                style: { width: `${progressPercent}%` }
+                            })
+                        ),
+                        React.createElement('p', { className: 'text-xs text-gray-600 mt-2' }, `${completedTodayCount} done so far today`)
+                    ),
+                    React.createElement('div', { className: 'flex gap-2 px-6 pb-4 border-b border-gray-200' },
+                        ['today', 'scheduled', 'complete'].map(v =>
+                            React.createElement('button', {
+                                key: v,
+                                onClick: () => { setView(v); setSelectedTags([]); },
+                                className: `px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                                    view === v
+                                        ? v === 'today'
+                                            ? 'bg-gradient-to-r from-orange-400 to-pink-400 text-white'
+                                            : v === 'scheduled'
+                                            ? 'bg-gradient-to-r from-pink-400 to-purple-400 text-white'
+                                            : 'bg-gradient-to-r from-purple-400 to-pink-400 text-white'
+                                        : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                                }`
+                            },
+                            v.charAt(0).toUpperCase() + v.slice(1)
+                            )
+                        )
+                    ),
+                    React.createElement('div', { className: 'flex gap-2 px-6 pb-4 flex-wrap' },
+                        allTags.map(tag =>
+                            React.createElement('button', {
+                                key: tag,
+                                onClick: () => setSelectedTags(prev =>
+                                    prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+                                ),
+                                className: `px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                                    selectedTags.includes(tag)
+                                        ? 'bg-orange-400 text-white'
+                                        : 'bg-orange-200 text-orange-800 hover:bg-orange-300'
+                                }`
+                            },
+                            tag
+                            )
+                        )
+                    ),
+                    React.createElement('div', { className: 'flex gap-3 px-6 pb-4 items-center' },
+                        React.createElement('select', {
+                            value: sortOrder,
+                            onChange: (e) => setSortOrder(e.target.value),
+                            className: 'px-3 py-1 rounded-lg bg-gray-200 text-gray-800 text-sm border-0 focus:outline-none'
+                        },
+                            React.createElement('option', { value: 'manual' }, 'Manual Order'),
+                            React.createElement('option', { value: 'name' }, 'Sort A-Z'),
+                            React.createElement('option', { value: 'time' }, 'Sort by Time')
+                        )
+                    )
+                ),
+                React.createElement('div', { className: 'pt-80 px-6 space-y-3' },
+                    view === 'scheduled' ? (
+                        React.createElement('div', null,
+                            Object.entries(
+                                displayedTasks.reduce((acc, task) => {
+                                    const date = new Date(task.scheduledDate).toLocaleDateString('en-US', { 
+                                        weekday: 'long', 
+                                        month: 'long', 
+                                        day: 'numeric' 
+                                    });
+                                    if (!acc[date]) acc[date] = [];
+                                    acc[date].push(task);
+                                    return acc;
+                                }, {})
+                            ).map(([date, dateTasks]) =>
+                                React.createElement('div', { key: date },
+                                    React.createElement('h3', { className: 'text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 mt-4' }, date),
+                                    dateTasks.map(task =>
+                                        React.createElement(TaskItem, {
+                                            key: task.id,
+                                            task: task,
+                                            onSelect: () => { setSelectedTask(task); setShowDetailsModal(true); },
+                                            onComplete: () => handleCompleteTask(task.id),
+                                            onReschedule: () => setSwipedTaskId(task.id),
+                                            swiped: swipedTaskId === task.id,
+                                            longPressed: longPressTaskId === task.id,
+                                            onTouchStart: handleTouchStart,
+                                            onTouchEnd: handleTouchEnd
+                                        })
+                                    )
+                                )
+                            )
+                        )
+                    ) : (
+                        React.createElement('div', null,
+                            displayedTasks.map(task =>
+                                React.createElement(TaskItem, {
+                                    key: task.id,
+                                    task: task,
+                                    onSelect: () => { setSelectedTask(task); setShowDetailsModal(true); },
+                                    onComplete: () => handleCompleteTask(task.id),
+                                    onReschedule: () => setSwipedTaskId(task.id),
+                                    swiped: swipedTaskId === task.id,
+                                    longPressed: longPressTaskId === task.id,
+                                    onTouchStart: handleTouchStart,
+                                    onTouchEnd: handleTouchEnd
+                                })
+                            ),
+                            displayedTasks.length === 0 && React.createElement('div', { className: 'text-center py-20 text-gray-500' },
+                                React.createElement('p', { className: 'text-lg' }, `No tasks ${view === 'today' ? 'for today' : view}`)
+                            )
+                        )
+                    )
+                ),
+                React.createElement('button', {
+                    onClick: () => setShowAddModal(true),
+                    className: 'fixed bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 bg-gradient-to-b from-orange-300 to-orange-400 rounded-full shadow-lg flex items-center justify-center text-white hover:shadow-xl transition-all active:scale-95'
+                },
+                    React.createElement('svg', { width: '28', height: '28', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
+                        React.createElement('line', { x1: '12', y1: '5', x2: '12', y2: '19' }),
+                        React.createElement('line', { x1: '5', y1: '12', x2: '19', y2: '12' })
+                    )
+                ),
+                showAddModal && React.createElement(AddTaskModal, {
+                    onAdd: handleAddTask,
+                    onClose: () => setShowAddModal(false)
+                }),
+                showDetailsModal && selectedTask && React.createElement(TaskDetailsModal, {
+                    task: selectedTask,
+                    onUpdate: handleUpdateTask,
+                    onDelete: handleDeleteTask,
+                    onAddSubtask: handleAddSubtask,
+                    onClose: () => setShowDetailsModal(false),
+                    tasks: tasks
+                }),
+                swipedTaskId && React.createElement(RescheduleModal, {
+                    taskId: swipedTaskId,
+                    task: tasks.find(t => t.id === swipedTaskId),
+                    onReschedule: handleRescheduleTask,
+                    onClose: () => setSwipedTaskId(null)
+                })
+            );
+        };
+
+        const TaskItem = ({ task, onSelect, onComplete, onReschedule, swiped, longPressed, onTouchStart, onTouchEnd }) => {
+            return React.createElement('div', {
+                onTouchStart: (e) => onTouchStart(e, task.id),
+                onTouchEnd: (e) => onTouchEnd(e, task.id),
+                onClick: onSelect,
+                className: `bg-white rounded-2xl p-4 shadow-md transition-all cursor-pointer ${
+                    swiped ? 'ring-2 ring-orange-400' : ''
+                } ${longPressed ? 'bg-yellow-50' : 'hover:shadow-lg'}`
+            },
+                React.createElement('div', { className: 'flex items-center gap-3' },
+                    React.createElement('div', {
+                        onClick: (e) => { e.stopPropagation(); onComplete(); },
+                        className: 'w-6 h-6 rounded-full border-2 border-gray-300 flex-shrink-0 cursor-pointer hover:border-orange-400 transition-colors'
+                    }),
+                    React.createElement('div', { className: 'flex-1 min-w-0' },
+                        React.createElement('p', { className: 'text-gray-800 font-medium truncate' }, task.name),
+                        task.notes && React.createElement('p', { className: 'text-gray-500 text-xs truncate' }, task.notes)
+                    ),
+                    task.tags && task.tags.length > 0 && React.createElement('div', { className: 'flex gap-1 flex-shrink-0' },
+                        task.tags.map(tag =>
+                            React.createElement('span', {
+                                key: tag,
+                                className: `text-xs font-medium px-2 py-1 rounded-full ${
+                                    tag === 'school' ? 'bg-orange-300 text-orange-900' :
+                                    tag === 'home' ? 'bg-purple-300 text-purple-900' :
+                                    'bg-pink-300 text-pink-900'
+                                }`
+                            },
+                            tag
+                            )
+                        )
+                    )
+                ),
+                swiped && React.createElement('div', { className: 'mt-3 flex gap-2' },
+                    React.createElement('button', {
+                        onClick: (e) => { e.stopPropagation(); onReschedule(); },
+                        className: 'flex-1 bg-orange-400 hover:bg-orange-500 text-white py-2 rounded-lg text-sm font-medium transition-colors'
+                    },
+                    'Reschedule'
+                    )
+                )
+            );
+        };
+
+        const AddTaskModal = ({ onAdd, onClose }) => {
+            const [formData, setFormData] = useState({
+                name: '',
+                notes: '',
+                tags: [],
+                scheduledDate: new Date().toISOString().split('T')[0],
+                reminder: new Date().toISOString().slice(0, 16),
+                recurring: 'never',
+                subtasks: [],
+            });
+
+            const quickTags = ['home', 'school', 'misc'];
+
+            const handleTagToggle = (tag) => {
+                setFormData(prev => ({
+                    ...prev,
+                    tags: prev.tags.includes(tag)
+                        ? prev.tags.filter(t => t !== tag)
+                        : [...prev.tags, tag],
+                }));
+            };
+
+            return React.createElement('div', { className: 'fixed inset-0 bg-black/50 flex items-end z-50' },
+                React.createElement('div', { className: 'w-full bg-white rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto' },
+                    React.createElement('h2', { className: 'text-2xl font-serif text-gray-800 mb-6' }, 'New Task...'),
+                    React.createElement('input', {
+                        type: 'text',
+                        placeholder: 'Task name',
+                        value: formData.name,
+                        onChange: (e) => setFormData(prev => ({ ...prev, name: e.target.value })),
+                        className: 'w-full bg-gray-200 rounded-xl p-3 text-gray-800 placeholder-gray-600 font-medium mb-4 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
+                    }),
+                    React.createElement('textarea', {
+                        placeholder: 'Add notes...',
+                        value: formData.notes,
+                        onChange: (e) => setFormData(prev => ({ ...prev, notes: e.target.value })),
+                        className: 'w-full bg-gray-200 rounded-xl p-3 text-gray-800 placeholder-gray-600 text-sm mb-4 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none h-20'
+                    }),
+                    React.createElement('div', { className: 'flex gap-2 mb-6 flex-wrap' },
+                        quickTags.map(tag =>
+                            React.createElement('button', {
+                                key: tag,
+                                onClick: () => handleTagToggle(tag),
+                                className: `px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                                    formData.tags.includes(tag)
+                                        ? tag === 'school'
+                                            ? 'bg-orange-400 text-white'
+                                            : tag === 'home'
+                                            ? 'bg-purple-400 text-white'
+                                            : 'bg-pink-400 text-white'
+                                        : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                                }`
+                            },
+                            tag
+                            )
+                        )
+                    ),
+                    React.createElement('div', { className: 'mb-6' },
+                        React.createElement('label', { className: 'text-sm text-gray-700 font-medium block mb-2' }, 'Choose a date...'),
+                        React.createElement('input', {
+                            type: 'date',
+                            value: formData.scheduledDate,
+                            onChange: (e) => setFormData(prev => ({ ...prev, scheduledDate: e.target.value })),
+                            className: 'w-full bg-gray-200 rounded-lg p-3 text-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
+                        })
+                    ),
+                    React.createElement('div', { className: 'mb-6' },
+                        React.createElement('label', { className: 'text-sm text-gray-700 font-medium block mb-2' }, 'Repeat?'),
+                        React.createElement('select', {
+                            value: formData.recurring,
+                            onChange: (e) => setFormData(prev => ({ ...prev, recurring: e.target.value })),
+                            className: 'w-full bg-gray-200 rounded-lg p-3 text-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
+                        },
+                            React.createElement('option', { value: 'never' }, 'Never'),
+                            React.createElement('option', { value: 'daily' }, 'Daily'),
+                            React.createElement('option', { value: 'weekly' }, 'Weekly'),
+                            React.createElement('option', { value: 'monthly' }, 'Monthly')
+                        )
+                    ),
+                    React.createElement('div', { className: 'mb-6' },
+                        React.createElement('label', { className: 'text-sm text-gray-700 font-medium block mb-2' }, 'Set a reminder?'),
+                        React.createElement('input', {
+                            type: 'datetime-local',
+                            value: formData.reminder,
+                            onChange: (e) => setFormData(prev => ({ ...prev, reminder: e.target.value })),
+                            className: 'w-full bg-gray-200 rounded-lg p-3 text-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
+                        })
+                    ),
+                    React.createElement('div', { className: 'flex gap-3 mt-8' },
+                        React.createElement('button', {
+                            onClick: onClose,
+                            className: 'flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-3 rounded-xl font-medium transition-colors'
+                        },
+                        'Cancel'
+                        ),
+                        React.createElement('button', {
+                            onClick: () => onAdd(formData),
+                            className: 'flex-1 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white py-3 rounded-xl font-medium transition-all'
+                        },
+                        'Add Task'
+                        )
+                    )
+                )
+            );
+        };
+
+        const RescheduleModal = ({ task, onReschedule, onClose }) => {
+            const [newDate, setNewDate] = useState(task.scheduledDate);
+            const [newReminder, setNewReminder] = useState(task.reminder);
+
+            const quickOptions = [
+                { label: 'Today', days: 0 },
+                { label: 'Tomorrow', days: 1 },
+                { label: 'This weekend', days: ((5 - new Date().getDay() + 7) % 7) || 6 },
+                { label: 'Monday', days: ((1 - new Date().getDay() + 7) % 7) || 7 },
+                { label: 'Next week', days: 7 },
+            ];
+
+            const handleQuickOption = (days) => {
+                const date = new Date();
+                date.setDate(date.getDate() + days);
+                setNewDate(date.toISOString().split('T')[0]);
+            };
+
+            return React.createElement('div', { className: 'fixed inset-0 bg-black/50 flex items-end z-50' },
+                React.createElement('div', { className: 'w-full bg-white rounded-t-3xl p-6' },
+                    React.createElement('h2', { className: 'text-2xl font-serif text-gray-800 mb-6' }, 'Reschedule Task'),
+                    React.createElement('div', { className: 'flex gap-2 mb-6 flex-wrap' },
+                        quickOptions.map(opt =>
+                            React.createElement('button', {
+                                key: opt.label,
+                                onClick: () => handleQuickOption(opt.days),
+                                className: 'px-4 py-2 rounded-full text-sm font-medium bg-orange-300 hover:bg-orange-400 text-orange-900 transition-colors'
+                            },
+                            opt.label
+                            )
+                        )
+                    ),
+                    React.createElement('div', { className: 'mb-6' },
+                        React.createElement('label', { className: 'text-sm text-gray-700 font-medium block mb-2' }, 'Choose a date...'),
+                        React.createElement('input', {
+                            type: 'date',
+                            value: newDate,
+                            onChange: (e) => setNewDate(e.target.value),
+                            className: 'w-full bg-gray-200 rounded-lg p-3 text-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
+                        })
+                    ),
+                    React.createElement('div', { className: 'mb-6' },
+                        React.createElement('label', { className: 'text-sm text-gray-700 font-medium block mb-2' }, 'Set a reminder?'),
+                        React.createElement('input', {
+                            type: 'datetime-local',
+                            value: newReminder,
+                            onChange: (e) => setNewReminder(e.target.value),
+                            className: 'w-full bg-gray-200 rounded-lg p-3 text-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
+                        })
+                    ),
+                    React.createElement('div', { className: 'flex gap-3 mt-8' },
+                        React.createElement('button', {
+                            onClick: onClose,
+                            className: 'flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-3 rounded-xl font-medium transition-colors'
+                        },
+                        'Cancel'
+                        ),
+                        React.createElement('button', {
+                            onClick: () => { onReschedule(task.id, newDate, newReminder); onClose(); },
+                            className: 'flex-1 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white py-3 rounded-xl font-medium transition-all'
+                        },
+                        'Reschedule'
+                        )
+                    )
+                )
+            );
+        };
+
+        const TaskDetailsModal = ({ task, onUpdate, onDelete, onAddSubtask, onClose, tasks }) => {
+            const [editingName, setEditingName] = useState(false);
+            const [name, setName] = useState(task.name);
+            const [tags, setTags] = useState(task.tags || []);
+            const [newSubtask, setNewSubtask] = useState('');
+            const quickTags = ['home', 'school', 'misc'];
+
+            const subtasks = tasks.filter(t => task.subtasks?.includes(t.id));
+
+            const handleTagToggle = (tag) => {
+                const newTags = tags.includes(tag) ? tags.filter(t => t !== tag) : [...tags, tag];
+                setTags(newTags);
+                onUpdate(task.id, { tags: newTags });
+            };
+
+            return React.createElement('div', { className: 'fixed inset-0 bg-black/50 flex items-end z-50' },
+                React.createElement('div', { className: 'w-full bg-white rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto' },
+                    React.createElement('div', { className: 'flex justify-between items-start mb-6' },
+                        editingName ? React.createElement('input', {
+                            type: 'text',
+                            value: name,
+                            onChange: (e) => setName(e.target.value),
+                            onBlur: () => { onUpdate(task.id, { name }); setEditingName(false); },
+                            autoFocus: true,
+                            className: 'flex-1 text-2xl font-serif text-gray-800 bg-gray-200 rounded-lg p-2 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
+                        }) : React.createElement('h2', {
+                            className: 'text-2xl font-serif text-gray-800 cursor-pointer',
+                            onClick: () => setEditingName(true)
+                        },
+                        name
+                        ),
+                        React.createElement('button', { onClick: onClose, className: 'text-gray-400 hover:text-gray-600' },
+                            React.createElement('svg', { width: '24', height: '24', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
+                                React.createElement('line', { x1: '18', y1: '6', x2: '6', y2: '18' }),
+                                React.createElement('line', { x1: '6', y1: '6', x2: '18', y2: '18' })
+                            )
+                        )
+                    ),
+                    task.notes && React.createElement('p', { className: 'text-gray-600 text-sm mb-4 bg-gray-100 p-3 rounded-lg' }, task.notes),
+                    React.createElement('div', { className: 'mb-6' },
+                        React.createElement('h3', { className: 'text-sm font-bold text-gray-700 mb-2 uppercase' }, 'Tags'),
+                        React.createElement('div', { className: 'flex gap-2 flex-wrap' },
+                            quickTags.map(tag =>
+                                React.createElement('button', {
+                                    key: tag,
+                                    onClick: () => handleTagToggle(tag),
+                                    className: `px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                                        tags.includes(tag)
+                                            ? tag === 'school'
+                                                ? 'bg-orange-400 text-white'
+                                                : tag === 'home'
+                                                ? 'bg-purple-400 text-white'
+                                                : 'bg-pink-400 text-white'
+                                            : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                                    }`
+                                },
+                                tag
+                                )
+                            )
+                        )
+                    ),
+                    task.subtasks && task.subtasks.length > 0 && React.createElement('div', { className: 'mb-6' },
+                        React.createElement('h3', { className: 'text-sm font-bold text-gray-700 mb-2 uppercase' }, 'Subtasks'),
+                        React.createElement('div', { className: 'space-y-2' },
+                            subtasks.map(st =>
+                                React.createElement('div', { key: st.id, className: 'flex items-center gap-3 bg-gray-100 p-3 rounded-lg' },
+                                    React.createElement('input', {
+                                        type: 'checkbox',
+                                        checked: st.completed,
+                                        onChange: () => onUpdate(st.id, { completed: !st.completed }),
+                                        className: 'w-5 h-5 accent-orange-400'
+                                    }),
+                                    React.createElement('span', { className: st.completed ? 'line-through text-gray-400' : 'text-gray-800' }, st.name)
+                                )
+                            )
+                        )
+                    ),
+                    React.createElement('div', { className: 'mb-6' },
+                        React.createElement('h3', { className: 'text-sm font-bold text-gray-700 mb-2 uppercase' }, 'Add Subtask'),
+                        React.createElement('div', { className: 'flex gap-2' },
+                            React.createElement('input', {
+                                type: 'text',
+                                placeholder: 'Subtask name...',
+                                value: newSubtask,
+                                onChange: (e) => setNewSubtask(e.target.value),
+                                className: 'flex-1 bg-gray-200 rounded-lg p-3 text-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
+                            }),
+                            React.createElement('button', {
+                                onClick: () => { onAddSubtask(task.id, newSubtask); setNewSubtask(''); },
+                                className: 'bg-orange-400 hover:bg-orange-500 text-white px-4 py-3 rounded-lg font-medium transition-colors'
+                            },
+                            'Add'
+                            )
+                        )
+                    ),
+                    React.createElement('div', { className: 'flex gap-3 mt-8' },
+                        React.createElement('button', {
+                            onClick: () => { onDelete(task.id); onClose(); },
+                            className: 'flex-1 bg-red-300 hover:bg-red-400 text-red-900 py-3 rounded-xl font-medium transition-colors'
+                        },
+                        'Delete'
+                        ),
+                        React.createElement('button', {
+                            onClick: onClose,
+                            className: 'flex-1 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white py-3 rounded-xl font-medium transition-all'
+                        },
+                        'Done'
+                        )
+                    )
+                )
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('app'));
+        root.render(React.createElement(TaskApp));
+    </script>
+</body>
+</html>
