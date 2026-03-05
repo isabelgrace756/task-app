@@ -7,35 +7,658 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Task App">
     <title>Task App</title>
-    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/react.production.min.js"></script>
-    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/react-dom.production.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * {
-            -webkit-user-select: none;
-            -webkit-touch-callout: none;
-            user-select: none;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(180deg, #f5e6d3 0%, #f3d5e8 40%, #e8c5f0 70%, #f4a8a8 100%);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #app {
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
         input, textarea, select {
             -webkit-user-select: text;
             user-select: text;
         }
-        @supports (padding: max(0px)) {
-            body {
-                padding-left: max(12px, env(safe-area-inset-left));
-                padding-right: max(12px, env(safe-area-inset-right));
-            }
+
+        .container {
+            min-height: 100vh;
+            padding-bottom: 120px;
         }
-        html, body, #app {
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(245, 230, 211, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 40;
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(200, 180, 160, 0.3);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .header-title {
+            font-size: 32px;
+            font-weight: 400;
+            color: #2d2d2d;
+            font-family: 'Georgia', serif;
+            letter-spacing: -0.5px;
+        }
+
+        .header-subtitle {
+            color: #666;
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .header-time {
+            text-align: right;
+            font-size: 12px;
+            color: #888;
+            font-weight: 500;
+        }
+
+        .header-time-main {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* Progress Bar */
+        .progress-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 8px;
+            background: #d4c4b4;
+            border-radius: 10px;
             overflow: hidden;
+            position: relative;
         }
-        #app {
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f5a86e 0%, #ec8fc1 50%, #b584d4 100%);
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #888;
+            font-weight: 500;
+            min-width: 80px;
+            text-align: right;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            padding: 12px 0;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .tab.active-today {
+            background: linear-gradient(90deg, #f5a86e, #ec8fc1);
+            color: white;
+        }
+
+        .tab.active-scheduled {
+            background: linear-gradient(90deg, #ec8fc1, #b584d4);
+            color: white;
+        }
+
+        .tab.active-complete {
+            background: linear-gradient(90deg, #b584d4, #ec8fc1);
+            color: white;
+        }
+
+        .tab.inactive {
+            background: #d4c4b4;
+            color: #666;
+        }
+
+        /* Tag Filter */
+        .tag-filter {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .tag-btn {
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #e8d5c4;
+            color: #8b6f47;
+        }
+
+        .tag-btn.active {
+            background: #f5a86e;
+            color: white;
+        }
+
+        /* Sort Controls */
+        .sort-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: flex-end;
+            margin-bottom: 0;
+        }
+
+        .sort-select {
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: #d4c4b4;
+            color: #2d2d2d;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+
+        /* Task List */
+        .task-list {
+            padding-top: 200px;
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+
+        .task-list > * + * {
+            margin-top: 12px;
+        }
+
+        .date-section-header {
+            font-size: 11px;
+            font-weight: 700;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 16px;
+            margin-bottom: 8px;
+        }
+
+        /* Task Item */
+        .task-item {
+            background: #ede8e3;
+            border-radius: 16px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            touch-action: pan-y;
+            border: 2px solid transparent;
+        }
+
+        .task-item:active {
+            opacity: 0.8;
+        }
+
+        .task-item.swiped {
+            border-color: #f5a86e;
+            background: #f5ede8;
+        }
+
+        .task-item.long-pressed {
+            background: #fef8f0;
+        }
+
+        .task-checkbox {
+            width: 20px;
+            height: 20px;
+            min-width: 20px;
+            border: 2px solid #c4a894;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 2px;
+        }
+
+        .task-checkbox:hover {
+            border-color: #f5a86e;
+        }
+
+        .task-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .task-name {
+            color: #2d2d2d;
+            font-weight: 500;
+            font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .task-notes {
+            color: #888;
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-top: 3px;
+        }
+
+        .task-tags {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .task-tag {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 12px;
+            white-space: nowrap;
+        }
+
+        .tag-school {
+            background: #f5a86e;
+            color: white;
+        }
+
+        .tag-home {
+            background: #d4b5f0;
+            color: #5a3a7a;
+        }
+
+        .tag-misc {
+            background: #f0b5d4;
+            color: #7a3a5a;
+        }
+
+        .task-actions {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-reschedule {
+            flex: 1;
+            background: #f5a86e;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-reschedule:hover {
+            background: #f0944d;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state-text {
+            font-size: 18px;
+        }
+
+        /* Add Button */
+        .add-button {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, #ffb8a8, #f5a86e);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(245, 168, 110, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 30;
+            transition: all 0.2s;
+            font-weight: 300;
+        }
+
+        .add-button:active {
+            transform: translateX(-50%) scale(0.95);
+            box-shadow: 0 4px 12px rgba(245, 168, 110, 0.2);
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: flex-end;
+            z-index: 50;
+        }
+
+        .modal-content {
+            width: 100%;
+            background: white;
+            border-radius: 24px 24px 0 0;
+            padding: 28px 24px;
+            max-height: 90vh;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-title {
+            font-size: 22px;
+            font-weight: 400;
+            color: #2d2d2d;
+            margin-bottom: 20px;
+            font-family: 'Georgia', serif;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 6px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-input,
+        .form-textarea,
+        .form-select {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: #d4c4b4;
+            color: #2d2d2d;
+            border: none;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-textarea {
+            resize: none;
+            height: 80px;
+        }
+
+        .form-input::placeholder,
+        .form-textarea::placeholder {
+            color: #888;
+        }
+
+        .form-input:focus,
+        .form-textarea:focus,
+        .form-select:focus {
+            outline: none;
+            box-shadow: inset 0 0 0 2px #f5a86e;
+        }
+
+        /* Quick Tags */
+        .quick-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 0;
+        }
+
+        .quick-tag-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-tag-btn.inactive {
+            background: #d4c4b4;
+            color: #666;
+        }
+
+        .quick-tag-btn.active-school {
+            background: #f5a86e;
+            color: white;
+        }
+
+        .quick-tag-btn.active-home {
+            background: #d4b5f0;
+            color: #5a3a7a;
+        }
+
+        .quick-tag-btn.active-misc {
+            background: #f0b5d4;
+            color: #7a3a5a;
+        }
+
+        /* Quick Options */
+        .quick-options {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .quick-option-btn {
+            padding: 8px 14px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            background: #f0b5d4;
+            color: #7a3a5a;
+            transition: all 0.2s;
+        }
+
+        .quick-option-btn:active {
+            opacity: 0.8;
+        }
+
+        /* Modal Buttons */
+        .modal-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-btn-cancel {
+            background: #d4c4b4;
+            color: #2d2d2d;
+        }
+
+        .modal-btn-cancel:active {
+            opacity: 0.8;
+        }
+
+        .modal-btn-submit {
+            background: linear-gradient(90deg, #f5a86e, #ec8fc1);
+            color: white;
+        }
+
+        .modal-btn-submit:active {
+            opacity: 0.9;
+        }
+
+        .modal-btn-delete {
+            background: #f0a5a5;
+            color: #8a3a3a;
+        }
+
+        .modal-btn-delete:active {
+            opacity: 0.9;
+        }
+
+        /* Subtasks */
+        .subtask-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .subtask-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f0ede8;
+            padding: 10px 12px;
+            border-radius: 10px;
+        }
+
+        .subtask-checkbox {
+            width: 18px;
+            height: 18px;
+            accent-color: #f5a86e;
+            cursor: pointer;
+        }
+
+        .subtask-name {
+            color: #2d2d2d;
+            font-size: 13px;
+            font-weight: 400;
+        }
+
+        .subtask-name.completed {
+            text-decoration: line-through;
+            color: #aaa;
+        }
+
+        .add-subtask-form {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .add-subtask-form input {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .add-subtask-form button {
+            padding: 8px 16px;
+            background: #f5a86e;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .add-subtask-form button:active {
+            opacity: 0.8;
+        }
+
+        /* Modal Header */
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 16px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 24px;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .header {
+                padding: 16px 16px;
+            }
+
+            .header-title {
+                font-size: 28px;
+            }
+
+            .task-list {
+                padding-top: 160px;
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+
+            .modal-content {
+                padding: 24px 16px;
+            }
         }
     </style>
 </head>
@@ -43,665 +666,620 @@
     <div id="app"></div>
 
     <script>
-        const { useState, useRef, useEffect, useCallback } = React;
+        class TaskApp {
+            constructor() {
+                this.tasks = [];
+                this.view = 'today';
+                this.selectedTags = [];
+                this.sortOrder = 'manual';
+                this.showAddModal = false;
+                this.showDetailsModal = false;
+                this.showRescheduleModal = false;
+                this.selectedTask = null;
+                this.swipedTaskId = null;
+                this.longPressTaskId = null;
+                this.completedTodayCount = 0;
+                
+                this.touchStartX = null;
+                this.touchStartY = null;
+                this.longPressTimer = null;
 
-        const TaskApp = () => {
-            const [tasks, setTasks] = useState([]);
-            const [view, setView] = useState('today');
-            const [showAddModal, setShowAddModal] = useState(false);
-            const [showDetailsModal, setShowDetailsModal] = useState(false);
-            const [selectedTask, setSelectedTask] = useState(null);
-            const [selectedTags, setSelectedTags] = useState([]);
-            const [sortOrder, setSortOrder] = useState('manual');
-            const [swipedTaskId, setSwipedTaskId] = useState(null);
-            const [longPressTaskId, setLongPressTaskId] = useState(null);
-            const [completedTodayCount, setCompletedTodayCount] = useState(0);
+                this.loadTasks();
+                this.render();
+            }
 
-            const touchStartX = useRef(null);
-            const touchStartY = useRef(null);
-            const longPressTimer = useRef(null);
-
-            useEffect(() => {
+            loadTasks() {
                 const saved = localStorage.getItem('tasks');
                 if (saved) {
                     try {
-                        setTasks(JSON.parse(saved));
+                        this.tasks = JSON.parse(saved);
                     } catch (e) {
                         console.error('Failed to load tasks:', e);
+                        this.tasks = [];
                     }
                 }
-            }, []);
+                this.updateCompletedCount();
+            }
 
-            useEffect(() => {
-                localStorage.setItem('tasks', JSON.stringify(tasks));
+            saveTasks() {
+                localStorage.setItem('tasks', JSON.stringify(this.tasks));
+                this.updateCompletedCount();
+            }
+
+            updateCompletedCount() {
                 const today = new Date().toDateString();
-                const completedToday = tasks.filter(t => t.completed && new Date(t.completedAt).toDateString() === today).length;
-                setCompletedTodayCount(completedToday);
-            }, [tasks]);
+                this.completedTodayCount = this.tasks.filter(t => 
+                    t.completed && new Date(t.completedAt || new Date()).toDateString() === today
+                ).length;
+            }
 
-            const allTags = [...new Set(tasks.flatMap(t => t.tags || []))];
-
-            const getTodayDate = () => {
+            getTodayDate() {
                 return new Date().toISOString().split('T')[0];
-            };
+            }
 
-            const isToday = (dateStr) => {
-                return dateStr === getTodayDate();
-            };
+            isToday(dateStr) {
+                return dateStr === this.getTodayDate();
+            }
 
-            const isScheduled = (dateStr) => {
-                const taskDate = new Date(dateStr);
-                const today = new Date(getTodayDate());
+            isScheduled(dateStr) {
+                const taskDate = new Date(dateStr + 'T00:00:00');
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
                 return taskDate > today;
-            };
+            }
 
-            const filterTasks = (tasksToFilter) => {
-                let filtered = tasksToFilter;
+            filterTasks() {
+                let filtered = this.tasks.filter(t => !t.parentId); // Hide subtasks from main list
 
-                if (view === 'today') {
-                    filtered = filtered.filter(t => isToday(t.scheduledDate) && !t.completed);
-                } else if (view === 'scheduled') {
-                    filtered = filtered.filter(t => isScheduled(t.scheduledDate) && !t.completed);
-                } else if (view === 'complete') {
+                if (this.view === 'today') {
+                    filtered = filtered.filter(t => this.isToday(t.scheduledDate) && !t.completed);
+                } else if (this.view === 'scheduled') {
+                    filtered = filtered.filter(t => this.isScheduled(t.scheduledDate) && !t.completed);
+                } else if (this.view === 'complete') {
                     filtered = filtered.filter(t => t.completed);
                 }
 
-                if (selectedTags.length > 0) {
-                    filtered = filtered.filter(t => selectedTags.some(tag => t.tags?.includes(tag)));
+                if (this.selectedTags.length > 0) {
+                    filtered = filtered.filter(t => 
+                        this.selectedTags.some(tag => t.tags?.includes(tag))
+                    );
                 }
 
                 return filtered;
-            };
+            }
 
-            const sortTasks = (tasksToSort) => {
-                const sorted = [...tasksToSort];
-                if (sortOrder === 'name') {
+            sortTasks(tasks) {
+                const sorted = [...tasks];
+                if (this.sortOrder === 'name') {
                     sorted.sort((a, b) => a.name.localeCompare(b.name));
-                } else if (sortOrder === 'time') {
-                    sorted.sort((a, b) => new Date(a.reminder || a.scheduledDate) - new Date(b.reminder || b.scheduledDate));
+                } else if (this.sortOrder === 'time') {
+                    sorted.sort((a, b) => 
+                        new Date(a.reminder || a.scheduledDate) - new Date(b.reminder || b.scheduledDate)
+                    );
                 }
                 return sorted;
-            };
+            }
 
-            const displayedTasks = sortTasks(filterTasks(tasks));
+            getDisplayedTasks() {
+                return this.sortTasks(this.filterTasks());
+            }
 
-            const handleAddTask = (newTask) => {
+            getAllTags() {
+                return [...new Set(this.tasks.filter(t => !t.parentId).flatMap(t => t.tags || []))];
+            }
+
+            getProgressPercent() {
+                if (this.view !== 'today') return 0;
+                const displayed = this.getDisplayedTasks();
+                const total = displayed.length + this.completedTodayCount;
+                return total > 0 ? (this.completedTodayCount / total) * 100 : 0;
+            }
+
+            addTask(taskData) {
                 const task = {
                     id: Date.now(),
-                    name: newTask.name,
-                    notes: newTask.notes,
-                    tags: newTask.tags,
-                    scheduledDate: newTask.scheduledDate,
-                    reminder: newTask.reminder,
-                    recurring: newTask.recurring,
-                    subtasks: newTask.subtasks || [],
+                    name: taskData.name,
+                    notes: taskData.notes,
+                    tags: taskData.tags,
+                    scheduledDate: taskData.scheduledDate,
+                    reminder: taskData.reminder,
+                    recurring: taskData.recurring,
+                    subtasks: [],
                     completed: false,
-                    order: tasks.length,
                 };
-                setTasks([...tasks, task]);
-                setShowAddModal(false);
-            };
+                this.tasks.push(task);
+                this.saveTasks();
+                this.showAddModal = false;
+                this.render();
+            }
 
-            const handleCompleteTask = (taskId) => {
-                setTasks(tasks.map(t => {
-                    if (t.id === taskId) {
-                        return { ...t, completed: true, completedAt: new Date().toISOString() };
-                    }
-                    return t;
-                }));
-                setSwipedTaskId(null);
-            };
+            completeTask(taskId) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.completed = true;
+                    task.completedAt = new Date().toISOString();
+                    this.saveTasks();
+                    this.swipedTaskId = null;
+                    this.render();
+                }
+            }
 
-            const handleRescheduleTask = (taskId, newDate, newReminder) => {
-                setTasks(tasks.map(t => t.id === taskId ? { ...t, scheduledDate: newDate, reminder: newReminder } : t));
-                setSwipedTaskId(null);
-            };
+            rescheduleTask(taskId, newDate, newReminder) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.scheduledDate = newDate;
+                    task.reminder = newReminder;
+                    this.saveTasks();
+                    this.showRescheduleModal = false;
+                    this.swipedTaskId = null;
+                    this.render();
+                }
+            }
 
-            const handleDeleteTask = (taskId) => {
-                setTasks(tasks.filter(t => t.id !== taskId));
-                setShowDetailsModal(false);
-            };
+            deleteTask(taskId) {
+                this.tasks = this.tasks.filter(t => t.id !== taskId);
+                this.saveTasks();
+                this.showDetailsModal = false;
+                this.selectedTask = null;
+                this.render();
+            }
 
-            const handleUpdateTask = (taskId, updates) => {
-                setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
-                setShowDetailsModal(false);
-            };
+            updateTask(taskId, updates) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    Object.assign(task, updates);
+                    this.saveTasks();
+                    this.selectedTask = task;
+                    this.render();
+                }
+            }
 
-            const handleAddSubtask = (parentId, subtaskName) => {
+            addSubtask(parentId, subtaskName) {
+                if (!subtaskName.trim()) return;
                 const subtask = {
                     id: Date.now(),
                     name: subtaskName,
                     completed: false,
                     parentId,
                 };
-                setTasks([...tasks, { ...subtask, subtasks: [] }]);
-                setTasks(prev => prev.map(t => 
-                    t.id === parentId 
-                        ? { ...t, subtasks: [...(t.subtasks || []), subtask.id] }
-                        : t
-                ));
-            };
+                this.tasks.push(subtask);
+                
+                const parent = this.tasks.find(t => t.id === parentId);
+                if (parent) {
+                    if (!parent.subtasks) parent.subtasks = [];
+                    parent.subtasks.push(subtask.id);
+                }
+                this.saveTasks();
+                this.render();
+            }
 
-            const handleTouchStart = (e, taskId) => {
-                touchStartX.current = e.touches[0].clientX;
-                touchStartY.current = e.touches[0].clientY;
+            render() {
+                const app = document.getElementById('app');
+                app.innerHTML = this.getHTML();
+                this.setupEventListeners();
+            }
 
-                longPressTimer.current = setTimeout(() => {
-                    setLongPressTaskId(taskId);
-                }, 500);
-            };
+            setupEventListeners() {
+                const app = document.getElementById('app');
+                
+                app.addEventListener('click', (e) => this.handleClick(e));
+                app.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: true });
+                app.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: true });
+            }
 
-            const handleTouchEnd = (e, taskId) => {
-                clearTimeout(longPressTimer.current);
-                setLongPressTaskId(null);
+            handleClick(e) {
+                const action = e.target.closest('[data-action]');
+                if (action) {
+                    const cmd = action.dataset.action;
+                    const param = action.dataset.param;
 
-                if (!touchStartX.current) return;
-
-                const touchEndX = e.changedTouches[0].clientX;
-                const touchEndY = e.changedTouches[0].clientY;
-                const diffX = touchStartX.current - touchEndX;
-                const diffY = touchStartY.current - touchEndY;
-
-                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
-                    if (diffX > 0) {
-                        setSwipedTaskId(taskId);
-                    } else {
-                        handleCompleteTask(taskId);
+                    switch(cmd) {
+                        case 'complete':
+                            this.completeTask(parseInt(param));
+                            break;
+                        case 'reschedule':
+                            this.swipedTaskId = parseInt(param);
+                            this.showRescheduleModal = true;
+                            this.render();
+                            break;
+                        case 'toggle-tag':
+                            this.selectedTags = this.selectedTags.includes(param)
+                                ? this.selectedTags.filter(t => t !== param)
+                                : [...this.selectedTags, param];
+                            this.render();
+                            break;
+                        case 'change-view':
+                            this.view = param;
+                            this.selectedTags = [];
+                            this.render();
+                            break;
+                        case 'add-task':
+                            this.showAddModal = true;
+                            this.render();
+                            break;
+                        case 'close-modal':
+                            this.showAddModal = false;
+                            this.showDetailsModal = false;
+                            this.showRescheduleModal = false;
+                            this.render();
+                            break;
+                        case 'select-task':
+                            this.selectedTask = this.tasks.find(t => t.id === parseInt(param));
+                            this.showDetailsModal = true;
+                            this.render();
+                            break;
+                        case 'delete-task':
+                            if (confirm('Delete this task?')) {
+                                this.deleteTask(parseInt(param));
+                            }
+                            break;
+                        case 'update-tag':
+                            if (this.selectedTask) {
+                                const tags = this.selectedTask.tags || [];
+                                this.selectedTask.tags = tags.includes(param)
+                                    ? tags.filter(t => t !== param)
+                                    : [...tags, param];
+                                this.updateTask(this.selectedTask.id, { tags: this.selectedTask.tags });
+                            }
+                            break;
+                        case 'toggle-subtask':
+                            const subtask = this.tasks.find(t => t.id === parseInt(param));
+                            if (subtask) {
+                                this.updateTask(subtask.id, { completed: !subtask.completed });
+                            }
+                            break;
+                        case 'add-subtask':
+                            const input = e.target.closest('form').querySelector('input[name="subtaskName"]');
+                            if (input?.value.trim()) {
+                                this.addSubtask(this.selectedTask.id, input.value);
+                                input.value = '';
+                            }
+                            break;
+                        case 'quick-reschedule':
+                            const days = parseInt(param);
+                            const date = new Date();
+                            date.setDate(date.getDate() + days);
+                            const newDate = date.toISOString().split('T')[0];
+                            const task = this.tasks.find(t => t.id === this.swipedTaskId);
+                            this.rescheduleTask(this.swipedTaskId, newDate, task?.reminder || '');
+                            break;
+                        case 'submit-form':
+                            e.preventDefault();
+                            const form = e.target.closest('form');
+                            const formData = new FormData(form);
+                            const formType = param;
+                            
+                            if (formType === 'add-task') {
+                                const taskData = {
+                                    name: formData.get('taskName') || '',
+                                    notes: formData.get('taskNotes') || '',
+                                    tags: formData.getAll('taskTags') || [],
+                                    scheduledDate: formData.get('taskDate') || this.getTodayDate(),
+                                    reminder: formData.get('taskReminder') || '',
+                                    recurring: formData.get('recurring') || 'never',
+                                };
+                                if (taskData.name) {
+                                    this.addTask(taskData);
+                                }
+                            } else if (formType === 'reschedule') {
+                                const newDate = formData.get('rescheduleDate');
+                                const newReminder = formData.get('rescheduleReminder');
+                                this.rescheduleTask(this.swipedTaskId, newDate, newReminder);
+                            }
+                            break;
                     }
                 }
+            }
 
-                touchStartX.current = null;
-                touchStartY.current = null;
-            };
+            handleTouchStart(e) {
+                const taskItem = e.target.closest('[data-task-item]');
+                if (taskItem) {
+                    this.touchStartX = e.touches[0].clientX;
+                    this.touchStartY = e.touches[0].clientY;
+                    const taskId = parseInt(taskItem.dataset.taskItem);
 
-            const progressPercent = Math.min((completedTodayCount / Math.max(displayedTasks.length + completedTodayCount, 1)) * 100, 100);
+                    this.longPressTimer = setTimeout(() => {
+                        this.longPressTaskId = taskId;
+                        this.render();
+                    }, 500);
+                }
+            }
 
-            return React.createElement('div', { className: 'min-h-screen bg-gradient-to-b from-orange-100 via-pink-200 to-purple-300 pb-32' },
-                React.createElement('div', { className: 'fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm z-40' },
-                    React.createElement('div', { className: 'flex justify-between items-start p-6 pt-8' },
-                        React.createElement('div', null,
-                            React.createElement('h1', { className: 'text-3xl font-serif text-gray-800' }, 'Hey, Bel.'),
-                            React.createElement('p', { className: 'text-gray-600 text-sm' }, 'Whatcha getting up to today?')
-                        ),
-                        React.createElement('div', { className: 'text-right text-xs text-gray-500' },
-                            React.createElement('p', { className: 'font-semibold' }, new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })),
-                            React.createElement('p', null, new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }))
-                        )
-                    ),
-                    view === 'today' && React.createElement('div', { className: 'px-6 pb-4' },
-                        React.createElement('div', { className: 'h-2 bg-gray-300 rounded-full overflow-hidden' },
-                            React.createElement('div', {
-                                className: 'h-full bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400 transition-all duration-300',
-                                style: { width: `${progressPercent}%` }
-                            })
-                        ),
-                        React.createElement('p', { className: 'text-xs text-gray-600 mt-2' }, `${completedTodayCount} done so far today`)
-                    ),
-                    React.createElement('div', { className: 'flex gap-2 px-6 pb-4 border-b border-gray-200' },
-                        ['today', 'scheduled', 'complete'].map(v =>
-                            React.createElement('button', {
-                                key: v,
-                                onClick: () => { setView(v); setSelectedTags([]); },
-                                className: `px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                                    view === v
-                                        ? v === 'today'
-                                            ? 'bg-gradient-to-r from-orange-400 to-pink-400 text-white'
-                                            : v === 'scheduled'
-                                            ? 'bg-gradient-to-r from-pink-400 to-purple-400 text-white'
-                                            : 'bg-gradient-to-r from-purple-400 to-pink-400 text-white'
-                                        : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
-                                }`
-                            },
-                            v.charAt(0).toUpperCase() + v.slice(1)
-                            )
-                        )
-                    ),
-                    React.createElement('div', { className: 'flex gap-2 px-6 pb-4 flex-wrap' },
-                        allTags.map(tag =>
-                            React.createElement('button', {
-                                key: tag,
-                                onClick: () => setSelectedTags(prev =>
-                                    prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-                                ),
-                                className: `px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                                    selectedTags.includes(tag)
-                                        ? 'bg-orange-400 text-white'
-                                        : 'bg-orange-200 text-orange-800 hover:bg-orange-300'
-                                }`
-                            },
-                            tag
-                            )
-                        )
-                    ),
-                    React.createElement('div', { className: 'flex gap-3 px-6 pb-4 items-center' },
-                        React.createElement('select', {
-                            value: sortOrder,
-                            onChange: (e) => setSortOrder(e.target.value),
-                            className: 'px-3 py-1 rounded-lg bg-gray-200 text-gray-800 text-sm border-0 focus:outline-none'
-                        },
-                            React.createElement('option', { value: 'manual' }, 'Manual Order'),
-                            React.createElement('option', { value: 'name' }, 'Sort A-Z'),
-                            React.createElement('option', { value: 'time' }, 'Sort by Time')
-                        )
-                    )
-                ),
-                React.createElement('div', { className: 'pt-80 px-6 space-y-3' },
-                    view === 'scheduled' ? (
-                        React.createElement('div', null,
-                            Object.entries(
-                                displayedTasks.reduce((acc, task) => {
-                                    const date = new Date(task.scheduledDate).toLocaleDateString('en-US', { 
-                                        weekday: 'long', 
-                                        month: 'long', 
-                                        day: 'numeric' 
-                                    });
-                                    if (!acc[date]) acc[date] = [];
-                                    acc[date].push(task);
-                                    return acc;
-                                }, {})
-                            ).map(([date, dateTasks]) =>
-                                React.createElement('div', { key: date },
-                                    React.createElement('h3', { className: 'text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 mt-4' }, date),
-                                    dateTasks.map(task =>
-                                        React.createElement(TaskItem, {
-                                            key: task.id,
-                                            task: task,
-                                            onSelect: () => { setSelectedTask(task); setShowDetailsModal(true); },
-                                            onComplete: () => handleCompleteTask(task.id),
-                                            onReschedule: () => setSwipedTaskId(task.id),
-                                            swiped: swipedTaskId === task.id,
-                                            longPressed: longPressTaskId === task.id,
-                                            onTouchStart: handleTouchStart,
-                                            onTouchEnd: handleTouchEnd
-                                        })
-                                    )
-                                )
-                            )
-                        )
-                    ) : (
-                        React.createElement('div', null,
-                            displayedTasks.map(task =>
-                                React.createElement(TaskItem, {
-                                    key: task.id,
-                                    task: task,
-                                    onSelect: () => { setSelectedTask(task); setShowDetailsModal(true); },
-                                    onComplete: () => handleCompleteTask(task.id),
-                                    onReschedule: () => setSwipedTaskId(task.id),
-                                    swiped: swipedTaskId === task.id,
-                                    longPressed: longPressTaskId === task.id,
-                                    onTouchStart: handleTouchStart,
-                                    onTouchEnd: handleTouchEnd
-                                })
-                            ),
-                            displayedTasks.length === 0 && React.createElement('div', { className: 'text-center py-20 text-gray-500' },
-                                React.createElement('p', { className: 'text-lg' }, `No tasks ${view === 'today' ? 'for today' : view}`)
-                            )
-                        )
-                    )
-                ),
-                React.createElement('button', {
-                    onClick: () => setShowAddModal(true),
-                    className: 'fixed bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 bg-gradient-to-b from-orange-300 to-orange-400 rounded-full shadow-lg flex items-center justify-center text-white hover:shadow-xl transition-all active:scale-95'
-                },
-                    React.createElement('svg', { width: '28', height: '28', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
-                        React.createElement('line', { x1: '12', y1: '5', x2: '12', y2: '19' }),
-                        React.createElement('line', { x1: '5', y1: '12', x2: '19', y2: '12' })
-                    )
-                ),
-                showAddModal && React.createElement(AddTaskModal, {
-                    onAdd: handleAddTask,
-                    onClose: () => setShowAddModal(false)
-                }),
-                showDetailsModal && selectedTask && React.createElement(TaskDetailsModal, {
-                    task: selectedTask,
-                    onUpdate: handleUpdateTask,
-                    onDelete: handleDeleteTask,
-                    onAddSubtask: handleAddSubtask,
-                    onClose: () => setShowDetailsModal(false),
-                    tasks: tasks
-                }),
-                swipedTaskId && React.createElement(RescheduleModal, {
-                    taskId: swipedTaskId,
-                    task: tasks.find(t => t.id === swipedTaskId),
-                    onReschedule: handleRescheduleTask,
-                    onClose: () => setSwipedTaskId(null)
-                })
-            );
-        };
+            handleTouchEnd(e) {
+                const taskItem = e.target.closest('[data-task-item]');
+                if (taskItem) {
+                    clearTimeout(this.longPressTimer);
+                    this.longPressTaskId = null;
 
-        const TaskItem = ({ task, onSelect, onComplete, onReschedule, swiped, longPressed, onTouchStart, onTouchEnd }) => {
-            return React.createElement('div', {
-                onTouchStart: (e) => onTouchStart(e, task.id),
-                onTouchEnd: (e) => onTouchEnd(e, task.id),
-                onClick: onSelect,
-                className: `bg-white rounded-2xl p-4 shadow-md transition-all cursor-pointer ${
-                    swiped ? 'ring-2 ring-orange-400' : ''
-                } ${longPressed ? 'bg-yellow-50' : 'hover:shadow-lg'}`
-            },
-                React.createElement('div', { className: 'flex items-center gap-3' },
-                    React.createElement('div', {
-                        onClick: (e) => { e.stopPropagation(); onComplete(); },
-                        className: 'w-6 h-6 rounded-full border-2 border-gray-300 flex-shrink-0 cursor-pointer hover:border-orange-400 transition-colors'
-                    }),
-                    React.createElement('div', { className: 'flex-1 min-w-0' },
-                        React.createElement('p', { className: 'text-gray-800 font-medium truncate' }, task.name),
-                        task.notes && React.createElement('p', { className: 'text-gray-500 text-xs truncate' }, task.notes)
-                    ),
-                    task.tags && task.tags.length > 0 && React.createElement('div', { className: 'flex gap-1 flex-shrink-0' },
-                        task.tags.map(tag =>
-                            React.createElement('span', {
-                                key: tag,
-                                className: `text-xs font-medium px-2 py-1 rounded-full ${
-                                    tag === 'school' ? 'bg-orange-300 text-orange-900' :
-                                    tag === 'home' ? 'bg-purple-300 text-purple-900' :
-                                    'bg-pink-300 text-pink-900'
-                                }`
-                            },
-                            tag
-                            )
-                        )
-                    )
-                ),
-                swiped && React.createElement('div', { className: 'mt-3 flex gap-2' },
-                    React.createElement('button', {
-                        onClick: (e) => { e.stopPropagation(); onReschedule(); },
-                        className: 'flex-1 bg-orange-400 hover:bg-orange-500 text-white py-2 rounded-lg text-sm font-medium transition-colors'
-                    },
-                    'Reschedule'
-                    )
-                )
-            );
-        };
+                    if (this.touchStartX) {
+                        const touchEndX = e.changedTouches[0].clientX;
+                        const touchEndY = e.changedTouches[0].clientY;
+                        const diffX = this.touchStartX - touchEndX;
+                        const diffY = this.touchStartY - touchEndY;
 
-        const AddTaskModal = ({ onAdd, onClose }) => {
-            const [formData, setFormData] = useState({
-                name: '',
-                notes: '',
-                tags: [],
-                scheduledDate: new Date().toISOString().split('T')[0],
-                reminder: new Date().toISOString().slice(0, 16),
-                recurring: 'never',
-                subtasks: [],
-            });
+                        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+                            const taskId = parseInt(taskItem.dataset.taskItem);
+                            if (diffX > 0) {
+                                // Swipe left
+                                this.swipedTaskId = taskId;
+                                this.showRescheduleModal = true;
+                            } else {
+                                // Swipe right
+                                this.completeTask(taskId);
+                            }
+                            this.render();
+                        }
+                    }
 
-            const quickTags = ['home', 'school', 'misc'];
+                    this.touchStartX = null;
+                    this.touchStartY = null;
+                }
+            }
 
-            const handleTagToggle = (tag) => {
-                setFormData(prev => ({
-                    ...prev,
-                    tags: prev.tags.includes(tag)
-                        ? prev.tags.filter(t => t !== tag)
-                        : [...prev.tags, tag],
-                }));
-            };
+            getHTML() {
+                const displayedTasks = this.getDisplayedTasks();
+                const allTags = this.getAllTags();
+                const progressPercent = this.getProgressPercent();
+                const currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                const currentDate = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
 
-            return React.createElement('div', { className: 'fixed inset-0 bg-black/50 flex items-end z-50' },
-                React.createElement('div', { className: 'w-full bg-white rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto' },
-                    React.createElement('h2', { className: 'text-2xl font-serif text-gray-800 mb-6' }, 'New Task...'),
-                    React.createElement('input', {
-                        type: 'text',
-                        placeholder: 'Task name',
-                        value: formData.name,
-                        onChange: (e) => setFormData(prev => ({ ...prev, name: e.target.value })),
-                        className: 'w-full bg-gray-200 rounded-xl p-3 text-gray-800 placeholder-gray-600 font-medium mb-4 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
-                    }),
-                    React.createElement('textarea', {
-                        placeholder: 'Add notes...',
-                        value: formData.notes,
-                        onChange: (e) => setFormData(prev => ({ ...prev, notes: e.target.value })),
-                        className: 'w-full bg-gray-200 rounded-xl p-3 text-gray-800 placeholder-gray-600 text-sm mb-4 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none h-20'
-                    }),
-                    React.createElement('div', { className: 'flex gap-2 mb-6 flex-wrap' },
-                        quickTags.map(tag =>
-                            React.createElement('button', {
-                                key: tag,
-                                onClick: () => handleTagToggle(tag),
-                                className: `px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                                    formData.tags.includes(tag)
-                                        ? tag === 'school'
-                                            ? 'bg-orange-400 text-white'
-                                            : tag === 'home'
-                                            ? 'bg-purple-400 text-white'
-                                            : 'bg-pink-400 text-white'
-                                        : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
-                                }`
-                            },
-                            tag
-                            )
-                        )
-                    ),
-                    React.createElement('div', { className: 'mb-6' },
-                        React.createElement('label', { className: 'text-sm text-gray-700 font-medium block mb-2' }, 'Choose a date...'),
-                        React.createElement('input', {
-                            type: 'date',
-                            value: formData.scheduledDate,
-                            onChange: (e) => setFormData(prev => ({ ...prev, scheduledDate: e.target.value })),
-                            className: 'w-full bg-gray-200 rounded-lg p-3 text-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
-                        })
-                    ),
-                    React.createElement('div', { className: 'mb-6' },
-                        React.createElement('label', { className: 'text-sm text-gray-700 font-medium block mb-2' }, 'Repeat?'),
-                        React.createElement('select', {
-                            value: formData.recurring,
-                            onChange: (e) => setFormData(prev => ({ ...prev, recurring: e.target.value })),
-                            className: 'w-full bg-gray-200 rounded-lg p-3 text-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
-                        },
-                            React.createElement('option', { value: 'never' }, 'Never'),
-                            React.createElement('option', { value: 'daily' }, 'Daily'),
-                            React.createElement('option', { value: 'weekly' }, 'Weekly'),
-                            React.createElement('option', { value: 'monthly' }, 'Monthly')
-                        )
-                    ),
-                    React.createElement('div', { className: 'mb-6' },
-                        React.createElement('label', { className: 'text-sm text-gray-700 font-medium block mb-2' }, 'Set a reminder?'),
-                        React.createElement('input', {
-                            type: 'datetime-local',
-                            value: formData.reminder,
-                            onChange: (e) => setFormData(prev => ({ ...prev, reminder: e.target.value })),
-                            className: 'w-full bg-gray-200 rounded-lg p-3 text-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
-                        })
-                    ),
-                    React.createElement('div', { className: 'flex gap-3 mt-8' },
-                        React.createElement('button', {
-                            onClick: onClose,
-                            className: 'flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-3 rounded-xl font-medium transition-colors'
-                        },
-                        'Cancel'
-                        ),
-                        React.createElement('button', {
-                            onClick: () => onAdd(formData),
-                            className: 'flex-1 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white py-3 rounded-xl font-medium transition-all'
-                        },
-                        'Add Task'
-                        )
-                    )
-                )
-            );
-        };
+                return `
+                    <div class="container">
+                        <div class="header">
+                            <div class="header-top">
+                                <div>
+                                    <div class="header-title">Hey, Bel.</div>
+                                    <div class="header-subtitle">Whatcha getting up to today?</div>
+                                </div>
+                                <div class="header-time">
+                                    <div class="header-time-main">${currentTime}</div>
+                                    <div>${currentDate}</div>
+                                </div>
+                            </div>
 
-        const RescheduleModal = ({ task, onReschedule, onClose }) => {
-            const [newDate, setNewDate] = useState(task.scheduledDate);
-            const [newReminder, setNewReminder] = useState(task.reminder);
+                            ${this.view === 'today' ? `
+                                <div class="progress-section">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: ${Math.min(progressPercent, 100)}%"></div>
+                                    </div>
+                                </div>
+                            ` : ''}
 
-            const quickOptions = [
-                { label: 'Today', days: 0 },
-                { label: 'Tomorrow', days: 1 },
-                { label: 'This weekend', days: ((5 - new Date().getDay() + 7) % 7) || 6 },
-                { label: 'Monday', days: ((1 - new Date().getDay() + 7) % 7) || 7 },
-                { label: 'Next week', days: 7 },
-            ];
+                            <div class="tabs">
+                                <button class="tab ${this.view === 'today' ? 'active-today' : 'inactive'}" data-action="change-view" data-param="today">COMPLETE</button>
+                                <button class="tab ${this.view === 'today' ? 'active-today' : 'inactive'}" data-action="change-view" data-param="today" style="background: linear-gradient(90deg, #f5a86e, #ec8fc1);">TODAY</button>
+                                <button class="tab ${this.view === 'scheduled' ? 'active-scheduled' : 'inactive'}" data-action="change-view" data-param="scheduled">SCHEDULED</button>
+                            </div>
 
-            const handleQuickOption = (days) => {
-                const date = new Date();
-                date.setDate(date.getDate() + days);
-                setNewDate(date.toISOString().split('T')[0]);
-            };
+                            ${allTags.length > 0 ? `
+                                <div class="tag-filter">
+                                    ${allTags.map(tag => `
+                                        <button class="tag-btn ${this.selectedTags.includes(tag) ? 'active' : ''}" data-action="toggle-tag" data-param="${tag}">
+                                            ${tag}
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
 
-            return React.createElement('div', { className: 'fixed inset-0 bg-black/50 flex items-end z-50' },
-                React.createElement('div', { className: 'w-full bg-white rounded-t-3xl p-6' },
-                    React.createElement('h2', { className: 'text-2xl font-serif text-gray-800 mb-6' }, 'Reschedule Task'),
-                    React.createElement('div', { className: 'flex gap-2 mb-6 flex-wrap' },
-                        quickOptions.map(opt =>
-                            React.createElement('button', {
-                                key: opt.label,
-                                onClick: () => handleQuickOption(opt.days),
-                                className: 'px-4 py-2 rounded-full text-sm font-medium bg-orange-300 hover:bg-orange-400 text-orange-900 transition-colors'
-                            },
-                            opt.label
-                            )
-                        )
-                    ),
-                    React.createElement('div', { className: 'mb-6' },
-                        React.createElement('label', { className: 'text-sm text-gray-700 font-medium block mb-2' }, 'Choose a date...'),
-                        React.createElement('input', {
-                            type: 'date',
-                            value: newDate,
-                            onChange: (e) => setNewDate(e.target.value),
-                            className: 'w-full bg-gray-200 rounded-lg p-3 text-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
-                        })
-                    ),
-                    React.createElement('div', { className: 'mb-6' },
-                        React.createElement('label', { className: 'text-sm text-gray-700 font-medium block mb-2' }, 'Set a reminder?'),
-                        React.createElement('input', {
-                            type: 'datetime-local',
-                            value: newReminder,
-                            onChange: (e) => setNewReminder(e.target.value),
-                            className: 'w-full bg-gray-200 rounded-lg p-3 text-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
-                        })
-                    ),
-                    React.createElement('div', { className: 'flex gap-3 mt-8' },
-                        React.createElement('button', {
-                            onClick: onClose,
-                            className: 'flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-3 rounded-xl font-medium transition-colors'
-                        },
-                        'Cancel'
-                        ),
-                        React.createElement('button', {
-                            onClick: () => { onReschedule(task.id, newDate, newReminder); onClose(); },
-                            className: 'flex-1 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white py-3 rounded-xl font-medium transition-all'
-                        },
-                        'Reschedule'
-                        )
-                    )
-                )
-            );
-        };
+                            <div class="sort-controls">
+                                <button class="sort-select" data-action="change-view" data-param="today">SORT</button>
+                            </div>
+                        </div>
 
-        const TaskDetailsModal = ({ task, onUpdate, onDelete, onAddSubtask, onClose, tasks }) => {
-            const [editingName, setEditingName] = useState(false);
-            const [name, setName] = useState(task.name);
-            const [tags, setTags] = useState(task.tags || []);
-            const [newSubtask, setNewSubtask] = useState('');
-            const quickTags = ['home', 'school', 'misc'];
+                        <div class="task-list">
+                            ${this.view === 'scheduled' ? this.renderScheduledView(displayedTasks) : this.renderTaskList(displayedTasks)}
+                            ${displayedTasks.length === 0 ? `<div class="empty-state"><p class="empty-state-text">No tasks ${this.view === 'today' ? 'for today' : this.view}</p></div>` : ''}
+                        </div>
 
-            const subtasks = tasks.filter(t => task.subtasks?.includes(t.id));
+                        <button class="add-button" data-action="add-task">+</button>
 
-            const handleTagToggle = (tag) => {
-                const newTags = tags.includes(tag) ? tags.filter(t => t !== tag) : [...tags, tag];
-                setTags(newTags);
-                onUpdate(task.id, { tags: newTags });
-            };
+                        ${this.showAddModal ? this.renderAddModal() : ''}
+                        ${this.showDetailsModal && this.selectedTask ? this.renderDetailsModal() : ''}
+                        ${this.showRescheduleModal ? this.renderRescheduleModal() : ''}
+                    </div>
+                `;
+            }
 
-            return React.createElement('div', { className: 'fixed inset-0 bg-black/50 flex items-end z-50' },
-                React.createElement('div', { className: 'w-full bg-white rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto' },
-                    React.createElement('div', { className: 'flex justify-between items-start mb-6' },
-                        editingName ? React.createElement('input', {
-                            type: 'text',
-                            value: name,
-                            onChange: (e) => setName(e.target.value),
-                            onBlur: () => { onUpdate(task.id, { name }); setEditingName(false); },
-                            autoFocus: true,
-                            className: 'flex-1 text-2xl font-serif text-gray-800 bg-gray-200 rounded-lg p-2 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
-                        }) : React.createElement('h2', {
-                            className: 'text-2xl font-serif text-gray-800 cursor-pointer',
-                            onClick: () => setEditingName(true)
-                        },
-                        name
-                        ),
-                        React.createElement('button', { onClick: onClose, className: 'text-gray-400 hover:text-gray-600' },
-                            React.createElement('svg', { width: '24', height: '24', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
-                                React.createElement('line', { x1: '18', y1: '6', x2: '6', y2: '18' }),
-                                React.createElement('line', { x1: '6', y1: '6', x2: '18', y2: '18' })
-                            )
-                        )
-                    ),
-                    task.notes && React.createElement('p', { className: 'text-gray-600 text-sm mb-4 bg-gray-100 p-3 rounded-lg' }, task.notes),
-                    React.createElement('div', { className: 'mb-6' },
-                        React.createElement('h3', { className: 'text-sm font-bold text-gray-700 mb-2 uppercase' }, 'Tags'),
-                        React.createElement('div', { className: 'flex gap-2 flex-wrap' },
-                            quickTags.map(tag =>
-                                React.createElement('button', {
-                                    key: tag,
-                                    onClick: () => handleTagToggle(tag),
-                                    className: `px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                                        tags.includes(tag)
-                                            ? tag === 'school'
-                                                ? 'bg-orange-400 text-white'
-                                                : tag === 'home'
-                                                ? 'bg-purple-400 text-white'
-                                                : 'bg-pink-400 text-white'
-                                            : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
-                                    }`
-                                },
-                                tag
-                                )
-                            )
-                        )
-                    ),
-                    task.subtasks && task.subtasks.length > 0 && React.createElement('div', { className: 'mb-6' },
-                        React.createElement('h3', { className: 'text-sm font-bold text-gray-700 mb-2 uppercase' }, 'Subtasks'),
-                        React.createElement('div', { className: 'space-y-2' },
-                            subtasks.map(st =>
-                                React.createElement('div', { key: st.id, className: 'flex items-center gap-3 bg-gray-100 p-3 rounded-lg' },
-                                    React.createElement('input', {
-                                        type: 'checkbox',
-                                        checked: st.completed,
-                                        onChange: () => onUpdate(st.id, { completed: !st.completed }),
-                                        className: 'w-5 h-5 accent-orange-400'
-                                    }),
-                                    React.createElement('span', { className: st.completed ? 'line-through text-gray-400' : 'text-gray-800' }, st.name)
-                                )
-                            )
-                        )
-                    ),
-                    React.createElement('div', { className: 'mb-6' },
-                        React.createElement('h3', { className: 'text-sm font-bold text-gray-700 mb-2 uppercase' }, 'Add Subtask'),
-                        React.createElement('div', { className: 'flex gap-2' },
-                            React.createElement('input', {
-                                type: 'text',
-                                placeholder: 'Subtask name...',
-                                value: newSubtask,
-                                onChange: (e) => setNewSubtask(e.target.value),
-                                className: 'flex-1 bg-gray-200 rounded-lg p-3 text-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-orange-400'
-                            }),
-                            React.createElement('button', {
-                                onClick: () => { onAddSubtask(task.id, newSubtask); setNewSubtask(''); },
-                                className: 'bg-orange-400 hover:bg-orange-500 text-white px-4 py-3 rounded-lg font-medium transition-colors'
-                            },
-                            'Add'
-                            )
-                        )
-                    ),
-                    React.createElement('div', { className: 'flex gap-3 mt-8' },
-                        React.createElement('button', {
-                            onClick: () => { onDelete(task.id); onClose(); },
-                            className: 'flex-1 bg-red-300 hover:bg-red-400 text-red-900 py-3 rounded-xl font-medium transition-colors'
-                        },
-                        'Delete'
-                        ),
-                        React.createElement('button', {
-                            onClick: onClose,
-                            className: 'flex-1 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white py-3 rounded-xl font-medium transition-all'
-                        },
-                        'Done'
-                        )
-                    )
-                )
-            );
-        };
+            renderTaskList(tasks) {
+                return tasks.map(task => this.renderTaskItem(task)).join('');
+            }
 
-        const root = ReactDOM.createRoot(document.getElementById('app'));
-        root.render(React.createElement(TaskApp));
+            renderScheduledView(tasks) {
+                const grouped = {};
+                tasks.forEach(task => {
+                    const date = new Date(task.scheduledDate + 'T00:00:00').toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                    if (!grouped[date]) grouped[date] = [];
+                    grouped[date].push(task);
+                });
+
+                return Object.entries(grouped).map(([date, dateTasks]) => `
+                    <div class="date-section-header">${date.toUpperCase()}</div>
+                    ${dateTasks.map(task => this.renderTaskItem(task)).join('')}
+                `).join('');
+            }
+
+            renderTaskItem(task) {
+                const isSwiped = this.swipedTaskId === task.id;
+                const isLongPressed = this.longPressTaskId === task.id;
+
+                return `
+                    <div class="task-item ${isSwiped ? 'swiped' : ''} ${isLongPressed ? 'long-pressed' : ''}" data-task-item="${task.id}">
+                        <div class="task-checkbox" data-action="complete" data-param="${task.id}"></div>
+                        <div class="task-content">
+                            <div class="task-name">${this.escapeHtml(task.name)}</div>
+                            ${task.notes ? `<div class="task-notes">${this.escapeHtml(task.notes)}</div>` : ''}
+                        </div>
+                        ${task.tags && task.tags.length > 0 ? `
+                            <div class="task-tags">
+                                ${task.tags.map(tag => `<span class="task-tag tag-${tag}">${tag}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        ${isSwiped ? `
+                            <div class="task-actions">
+                                <button class="btn-reschedule" data-action="reschedule" data-param="${task.id}">Reschedule</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            renderAddModal() {
+                const today = this.getTodayDate();
+                const reminderTime = new Date().toISOString().slice(0, 16);
+
+                return `
+                    <div class="modal">
+                        <div class="modal-content">
+                            <h2 class="modal-title">✏️ New Task...</h2>
+                            <form data-action="submit-form" data-param="add-task">
+                                <div class="form-group">
+                                    <input type="text" name="taskName" class="form-input" placeholder="Task name" required>
+                                </div>
+                                <div class="form-group">
+                                    <textarea name="taskNotes" class="form-textarea" placeholder="Add notes..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <div class="quick-tags">
+                                        <button type="button" class="quick-tag-btn inactive" onclick="this.classList.toggle('active-home'); this.parentElement.parentElement.parentElement.querySelector('input[value=\\'home\\']')?.click()">home</button>
+                                        <button type="button" class="quick-tag-btn inactive" onclick="this.classList.toggle('active-school'); this.parentElement.parentElement.parentElement.querySelector('input[value=\\'school\\']')?.click()">school</button>
+                                        <button type="button" class="quick-tag-btn inactive" onclick="this.classList.toggle('active-misc'); this.parentElement.parentElement.parentElement.querySelector('input[value=\\'misc\\']')?.click()">misc</button>
+                                    </div>
+                                </div>
+                                <div style="display:none;">
+                                    <input type="checkbox" name="taskTags" value="home">
+                                    <input type="checkbox" name="taskTags" value="school">
+                                    <input type="checkbox" name="taskTags" value="misc">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Choose a date...</label>
+                                    <input type="date" name="taskDate" class="form-input" value="${today}">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Repeat?</label>
+                                    <select name="recurring" class="form-select">
+                                        <option value="never">Never</option>
+                                        <option value="daily">Daily</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Set a reminder?</label>
+                                    <input type="datetime-local" name="taskReminder" class="form-input" value="${reminderTime}">
+                                </div>
+                                <div class="modal-buttons">
+                                    <button type="button" class="modal-btn-cancel" data-action="close-modal">Cancel</button>
+                                    <button type="submit" class="modal-btn-submit">Add Task</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderDetailsModal() {
+                const task = this.selectedTask;
+                const subtasks = this.tasks.filter(t => task.subtasks?.includes(t.id));
+
+                return `
+                    <div class="modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h2 class="modal-title">${this.escapeHtml(task.name)}</h2>
+                                <button class="modal-close" data-action="close-modal">✕</button>
+                            </div>
+
+                            ${task.notes ? `<p style="color: #666; font-size: 13px; background: #f0ede8; padding: 10px 12px; border-radius: 8px; margin-bottom: 16px;">${this.escapeHtml(task.notes)}</p>` : ''}
+
+                            <div class="form-group">
+                                <label class="form-label">Tags</label>
+                                <div class="quick-tags">
+                                    ${['home', 'school', 'misc'].map(tag => `
+                                        <button type="button" class="quick-tag-btn ${task.tags?.includes(tag) ? 'active-' + tag : 'inactive'}" data-action="update-tag" data-param="${tag}">${tag}</button>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            ${subtasks.length > 0 ? `
+                                <div class="form-group">
+                                    <label class="form-label">Subtasks</label>
+                                    <div class="subtask-list">
+                                        ${subtasks.map(st => `
+                                            <div class="subtask-item">
+                                                <input type="checkbox" ${st.completed ? 'checked' : ''} class="subtask-checkbox" data-action="toggle-subtask" data-param="${st.id}">
+                                                <span class="subtask-name ${st.completed ? 'completed' : ''}">${this.escapeHtml(st.name)}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            <div class="form-group">
+                                <label class="form-label">Add Subtask</label>
+                                <form class="add-subtask-form">
+                                    <input type="text" name="subtaskName" class="form-input" placeholder="Subtask name..." style="margin-bottom: 0;">
+                                    <button type="button" class="btn-reschedule" data-action="add-subtask">Add</button>
+                                </form>
+                            </div>
+
+                            <div class="modal-buttons">
+                                <button class="modal-btn-delete" data-action="delete-task" data-param="${task.id}">Delete</button>
+                                <button class="modal-btn-submit" data-action="close-modal">Done</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderRescheduleModal() {
+                const task = this.tasks.find(t => t.id === this.swipedTaskId);
+                if (!task) return '';
+
+                return `
+                    <div class="modal">
+                        <div class="modal-content">
+                            <h2 class="modal-title">Reschedule Task</h2>
+                            <div class="quick-options">
+                                <button type="button" class="quick-option-btn" data-action="quick-reschedule" data-param="0">Today</button>
+                                <button type="button" class="quick-option-btn" data-action="quick-reschedule" data-param="1">Tomorrow</button>
+                                <button type="button" class="quick-option-btn" data-action="quick-reschedule" data-param="6">This weekend</button>
+                                <button type="button" class="quick-option-btn" data-action="quick-reschedule" data-param="7">Next week</button>
+                            </div>
+                            <form data-action="submit-form" data-param="reschedule">
+                                <div class="form-group">
+                                    <label class="form-label">Choose a date...</label>
+                                    <input type="date" name="rescheduleDate" class="form-input" value="${task.scheduledDate}">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Set a reminder?</label>
+                                    <input type="datetime-local" name="rescheduleReminder" class="form-input" value="${task.reminder}">
+                                </div>
+                                <div class="modal-buttons">
+                                    <button type="button" class="modal-btn-cancel" data-action="close-modal">Cancel</button>
+                                    <button type="submit" class="modal-btn-submit">Reschedule</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                `;
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => new TaskApp());
+        } else {
+            new TaskApp();
+        }
     </script>
 </body>
 </html>
