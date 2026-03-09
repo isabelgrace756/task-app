@@ -2,26 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="preload" href="Tobias-Light.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="SaansSemiMono-Light-TRIAL.woff2" as="font" type="font/woff2" crossorigin>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Task App</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-         .header-font {
-    font-family: 'Tobias-TRIAL';
-    font-weight: 200;
-    font-style: normal;
-}
-.mainBodyFont {
-    font-family: 'Saans SemiMono-TRIAL';
-    font-weight: 200;
-    font-style: normal;
-}
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            touch-action: manipulation;
+        }
+
         body { 
             font-family: 'Saans SemiMono-TRIAL', -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
-            background: #FFFCF4;
+            background: linear-gradient(180deg, #FFFCF4 0%, #F5E6D3 35%, #F3D5E8 65%, #F4A8A8 100%);
             min-height: 100vh;
             padding-bottom: 140px;
             position: relative;
@@ -32,12 +28,12 @@
         body::before {
             content: '';
             position: fixed;
-            bottom: 0;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            width: 300px;
-            height: 300px;
-            background: radial-gradient(circle, farthest-side,#FB7B41, #FF9CFA, #BAB1EA, rgba(186, 177, 234, 0),#FFFCF4);
+            width: 350px;
+            height: 350px;
+            background: radial-gradient(circle, rgba(251, 123, 65, 0.3), rgba(255, 156, 250, 0.2), rgba(186, 177, 234, 0.1), transparent);
             border-radius: 50%;
             z-index: 0;
             pointer-events: none;
@@ -61,6 +57,7 @@
         .header-card {
             background: rgba(216, 207, 182, 0.4);
             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             border: 0.5px solid rgba(255, 240, 220, 0.6);
             border-radius: 24px;
             padding: 16px;
@@ -74,14 +71,18 @@
             gap: 12px;
             align-items: center;
             margin-bottom: 16px;
+            position: relative;
         }
 
         .progress-bar {
             flex: 1;
-            height: 20px;
+            height: 30px;
             background: #D8CFB6;
-            border-radius: 10px;
+            border-radius: 30px;
             overflow: hidden;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
         }
         
         .progress-fill {
@@ -89,14 +90,16 @@
             border-radius: 999px;
             background: linear-gradient(90deg, #FB7B41 0%, #FF9CFA 50%, #BAB1EA 100%);
             transition: width 0.3s ease;
+            min-width: 0;
         }
 
         .progress-text {
-            font-size: 12px;
-            color: #8b7355;
-            font-weight: 500;
-            min-width: 80px;
+            font-size: 11px;
+            color: #F5E6D3;
+            font-weight: 600;
             white-space: nowrap;
+            margin-left: 6px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
         
         .tabs {
@@ -116,6 +119,7 @@
             background: #D8CFB6;
             color: #1e1e1e;
             transition: all 0.2s;
+            font-family: 'Saans SemiMono-TRIAL', -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
         }
         
         .tab.active {
@@ -157,6 +161,31 @@
             background: #f0b5d4;
             color: #7a3a5a;
         }
+
+        /* Sort controls */
+        .sort-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 0.5px solid rgba(255, 240, 220, 0.4);
+        }
+
+        .sort-btn {
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            border: none;
+            cursor: pointer;
+            background: #D8CFB6;
+            color: #1e1e1e;
+            transition: all 0.2s;
+        }
+
+        .sort-btn.active {
+            background: #FB7B41;
+            color: white;
+        }
         
         .content {
             padding-top: 240px;
@@ -169,7 +198,7 @@
         .task-item {
             background: #D8CFB6;
             border-radius: 160px;
-            padding: 20px 20px;
+            padding: 20px;
             margin-bottom: 12px;
             display: flex;
             gap: 12px;
@@ -179,10 +208,17 @@
             position: relative;
             transition: all 0.2s;
             border: 2px solid transparent;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         .task-item.swiped {
             border-color: #FB7B41;
+        }
+
+        .task-item.dragging {
+            opacity: 0.7;
+            transform: scale(0.98);
         }
         
         .task-dot {
@@ -190,8 +226,10 @@
             height: 24px;
             border-radius: 50%;
             flex-shrink: 0;
-            cursor: pointer;
+            cursor: grab;
             transition: all 0.2s;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         .dot-school { background: #FB7B41; }
@@ -231,6 +269,20 @@
         .btn-reschedule:active {
             opacity: 0.8;
         }
+
+        .drag-handle {
+            cursor: grab;
+            color: #8b7355;
+            font-weight: bold;
+            font-size: 20px;
+            padding: 0 4px;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
         
         .add-button {
             position: fixed;
@@ -239,7 +291,7 @@
             transform: translateX(-50%);
             width: 60px;
             height: 60px;
-            background: radial-gradient(circle, #ffb8a8, #FB7B41);
+            background: radial-gradient(circle at 40% 40%, #ffb8a8, #FB7B41);
             border: none;
             border-radius: 50%;
             color: white;
@@ -248,6 +300,8 @@
             box-shadow: 0 8px 24px rgba(251, 123, 65, 0.4);
             z-index: 30;
             transition: all 0.2s;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         .add-button:active {
@@ -261,6 +315,8 @@
             display: none;
             align-items: flex-end;
             z-index: 50;
+            -webkit-user-select: none;
+            user-select: none;
         }
         
         .modal.show { display: flex; }
@@ -277,13 +333,41 @@
         
         .modal-title { font-size: 22px; font-family: 'Tobias-TRIAL', Georgia, serif; color: #1e1e1e; margin-bottom: 20px; font-weight: 200; }
         
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #888;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+        }
+        
         .form-group { margin-bottom: 16px; }
         .form-label { font-size: 12px; font-weight: 600; color: #666; margin-bottom: 6px; display: block; text-transform: uppercase; }
-        .form-input, .form-textarea { width: 100%; padding: 12px 16px; border-radius: 12px; background: #D8CFB6; border: none; color: #1e1e1e; font-family: inherit; }
+        .form-input, .form-textarea { 
+            width: 100%; 
+            padding: 12px 16px; 
+            border-radius: 12px; 
+            background: #D8CFB6; 
+            border: none; 
+            color: #1e1e1e; 
+            font-family: inherit;
+            -webkit-user-select: text;
+            user-select: text;
+        }
         .form-textarea { height: 80px; resize: none; }
         
         .quick-tags { display: flex; gap: 8px; flex-wrap: wrap; }
-        .quick-tag { padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; background: #D8CFB6; color: #666; transition: all 0.2s; }
+        .quick-tag { padding: 8px 16px; border-radius: 20px; font-family: 'Saans SemiMono-TRIAL', -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;font-size: 13px;  border: none; cursor: pointer; background: #D8CFB6; color: #666; transition: all 0.2s; }
         .quick-tag.active-school { background: #FB7B41; color: white; }
         .quick-tag.active-home { background: #d4b5f0; color: #5a3a7a; }
         .quick-tag.active-misc { background: #f0b5d4; color: #7a3a5a; }
@@ -292,6 +376,7 @@
         .modal-buttons button { flex: 1; padding: 12px 16px; border: none; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer; }
         .btn-cancel { background: #D8CFB6; color: #1e1e1e; }
         .btn-submit { background: linear-gradient(90deg, #FB7B41, #FF9CFA); color: white; }
+        .btn-delete { background: #f5a5a5; color: #8a3a3a; }
         
         .empty { text-align: center; padding: 40px 20px; color: #999; }
 
@@ -318,6 +403,26 @@
         .quick-option:active {
             opacity: 0.8;
         }
+
+        .details-section {
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 0.5px solid #e0e0e0;
+        }
+
+        .details-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .details-content {
+            font-size: 14px;
+            color: #1e1e1e;
+        }
     </style>
 </head>
 <body>
@@ -337,8 +442,8 @@
             <div class="progress-container">
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                    <div class="progress-text" id="progressText">0/0</div>
                 </div>
-                <div class="progress-text" id="progressText">0/0 tasks done today</div>
             </div>
 
             <div class="tabs">
@@ -348,6 +453,10 @@
             </div>
 
             <div class="tag-filter" id="tagFilter"></div>
+
+            <div class="sort-controls">
+                <button class="sort-btn" onclick="app.toggleSort('manual')">SORT</button>
+            </div>
         </div>
     </div>
     
@@ -357,9 +466,13 @@
     
     <button class="add-button" onclick="app.openAddModal()">+</button>
     
+    <!-- Add Task Modal -->
     <div class="modal" id="addModal">
         <div class="modal-content">
-            <h2 class="modal-title">✏️ New Task...</h2>
+            <div class="modal-header">
+                <h2 class="modal-title">✏️ New Task...</h2>
+                <button class="modal-close" onclick="app.closeAddModal()">✕</button>
+            </div>
             <div class="form-group">
                 <input type="text" id="taskName" class="form-input" placeholder="Task name">
             </div>
@@ -373,6 +486,10 @@
                 <label class="form-label">Choose a date...</label>
                 <input type="date" id="taskDate" class="form-input">
             </div>
+            <div class="form-group">
+                <label class="form-label">Set a reminder?</label>
+                <input type="datetime-local" id="taskReminder" class="form-input">
+            </div>
             <div class="modal-buttons">
                 <button class="btn-cancel" onclick="app.closeAddModal()">Cancel</button>
                 <button class="btn-submit" onclick="app.saveTask()">Add Task</button>
@@ -380,9 +497,54 @@
         </div>
     </div>
 
+    <!-- Task Details Modal -->
+    <div class="modal" id="detailsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="detailsTitle">Task Details</h2>
+                <button class="modal-close" onclick="app.closeDetailsModal()">✕</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Task Name</label>
+                <input type="text" id="detailsName" class="form-input">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Notes</label>
+                <textarea id="detailsNotes" class="form-textarea"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Tags</label>
+                <div class="quick-tags" id="detailsTags"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Date</label>
+                <input type="date" id="detailsDate" class="form-input">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Reminder</label>
+                <input type="datetime-local" id="detailsReminder" class="form-input">
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn-delete" onclick="app.deleteCurrentTask()">Delete</button>
+                <button class="btn-cancel" onclick="app.closeDetailsModal()">Cancel</button>
+                <button class="btn-submit" onclick="app.saveTaskDetails()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reschedule Modal -->
     <div class="modal" id="rescheduleModal">
         <div class="modal-content">
-            <h2 class="modal-title">Reschedule Task</h2>
+            <div class="modal-header">
+                <h2 class="modal-title">Reschedule Task</h2>
+                <button class="modal-close" onclick="app.closeRescheduleModal()">✕</button>
+            </div>
             <div class="quick-options" id="quickOptions"></div>
             <div class="form-group">
                 <label class="form-label">Choose a date...</label>
@@ -401,8 +563,12 @@
             view: 'today',
             selectedTags: [],
             swipedTaskId: null,
-            touchStartX: null,
-            touchStartY: null,
+            currentTaskId: null,
+            sortMode: false,
+            draggedTaskId: null,
+            touchStartX: 0,
+            touchStartY: 0,
+            longPressTimer: null,
             
             init() {
                 this.loadTasks();
@@ -410,6 +576,7 @@
                 this.setupTagButtons();
                 this.setupTagFilter();
                 this.setupRescheduleOptions();
+                this.setupDetailsTags();
                 setInterval(() => this.updateTime(), 1000);
                 setInterval(() => this.render(), 5000);
                 this.render();
@@ -422,10 +589,10 @@
             
             getDefaultTasks() {
                 return [
-                    { id: 1, name: 'Finish exhibition posters', notes: 'due Sunday', tags: ['school'], date: this.getToday(), completed: false },
-                    { id: 2, name: 'Order exhibition decals for podium', notes: 'due Sunday', tags: ['school'], date: this.getToday(), completed: false },
-                    { id: 3, name: 'Print Denman poster', notes: 'by Saturday', tags: ['school'], date: this.getToday(), completed: false },
-                    { id: 4, name: 'PT exercises', notes: 'by tomorrow', tags: ['home'], date: this.getToday(), completed: false },
+                    { id: 1, name: 'Finish exhibition posters', notes: 'due Sunday', tags: ['school'], date: this.getToday(), completed: false, reminder: '', order: 0 },
+                    { id: 2, name: 'Order exhibition decals for podium', notes: 'due Sunday', tags: ['school'], date: this.getToday(), completed: false, reminder: '', order: 1 },
+                    { id: 3, name: 'Print Denman poster', notes: 'by Saturday', tags: ['school'], date: this.getToday(), completed: false, reminder: '', order: 2 },
+                    { id: 4, name: 'PT exercises', notes: 'by tomorrow', tags: ['home'], date: this.getToday(), completed: false, reminder: '', order: 3 },
                 ];
             },
             
@@ -443,8 +610,25 @@
                 container.innerHTML = '';
                 ['home', 'school', 'misc'].forEach(tag => {
                     const btn = document.createElement('button');
+                    btn.type = 'button';
                     btn.className = 'quick-tag';
                     btn.textContent = tag;
+                    btn.onclick = () => {
+                        btn.classList.toggle(`active-${tag}`);
+                    };
+                    container.appendChild(btn);
+                });
+            },
+
+            setupDetailsTags() {
+                const container = document.getElementById('detailsTags');
+                container.innerHTML = '';
+                ['home', 'school', 'misc'].forEach(tag => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'quick-tag';
+                    btn.textContent = tag;
+                    btn.dataset.tag = tag;
                     btn.onclick = () => {
                         btn.classList.toggle(`active-${tag}`);
                     };
@@ -459,6 +643,7 @@
                 
                 allTags.forEach(tag => {
                     const btn = document.createElement('button');
+                    btn.type = 'button';
                     btn.className = 'filter-tag';
                     btn.textContent = tag;
                     btn.onclick = () => {
@@ -483,6 +668,7 @@
                 
                 options.forEach(opt => {
                     const btn = document.createElement('button');
+                    btn.type = 'button';
                     btn.className = 'quick-option';
                     btn.textContent = opt.label;
                     btn.onclick = () => {
@@ -502,6 +688,12 @@
                     btn.classList.toggle('active', (i === 1 && view === 'today') || (i === 0 && view === 'scheduled') || (i === 2 && view === 'complete'));
                 });
             },
+
+            toggleSort(mode) {
+                this.sortMode = !this.sortMode;
+                document.querySelector('.sort-btn').classList.toggle('active', this.sortMode);
+                this.render();
+            },
             
             getFilteredTasks() {
                 let tasks = this.tasks;
@@ -516,6 +708,11 @@
 
                 if (this.selectedTags.length > 0) {
                     tasks = tasks.filter(t => this.selectedTags.some(tag => t.tags?.includes(tag)));
+                }
+
+                // Sort by order if manual sort is enabled
+                if (this.sortMode && this.view === 'today') {
+                    tasks.sort((a, b) => (a.order || 0) - (b.order || 0));
                 }
 
                 return tasks;
@@ -553,6 +750,57 @@
                     this.closeRescheduleModal();
                 }
             },
+
+            openDetailsModal(taskId) {
+                this.currentTaskId = taskId;
+                const task = this.tasks.find(t => t.id === taskId);
+                if (!task) return;
+
+                document.getElementById('detailsTitle').textContent = task.name;
+                document.getElementById('detailsName').value = task.name;
+                document.getElementById('detailsNotes').value = task.notes || '';
+                document.getElementById('detailsDate').value = task.date;
+                document.getElementById('detailsReminder').value = task.reminder || '';
+
+                // Set tags
+                document.querySelectorAll('#detailsTags .quick-tag').forEach(btn => {
+                    const tag = btn.dataset.tag;
+                    btn.classList.remove(`active-${tag}`);
+                    if (task.tags?.includes(tag)) {
+                        btn.classList.add(`active-${tag}`);
+                    }
+                });
+
+                document.getElementById('detailsModal').classList.add('show');
+            },
+
+            closeDetailsModal() {
+                document.getElementById('detailsModal').classList.remove('show');
+                this.currentTaskId = null;
+            },
+
+            saveTaskDetails() {
+                const task = this.tasks.find(t => t.id === this.currentTaskId);
+                if (!task) return;
+
+                task.name = document.getElementById('detailsName').value;
+                task.notes = document.getElementById('detailsNotes').value;
+                task.date = document.getElementById('detailsDate').value;
+                task.reminder = document.getElementById('detailsReminder').value;
+                task.tags = Array.from(document.querySelectorAll('#detailsTags .quick-tag.active-school, #detailsTags .quick-tag.active-home, #detailsTags .quick-tag.active-misc'))
+                    .map(btn => btn.dataset.tag);
+
+                this.saveTasks();
+                this.closeDetailsModal();
+            },
+
+            deleteCurrentTask() {
+                if (confirm('Delete this task?')) {
+                    this.tasks = this.tasks.filter(t => t.id !== this.currentTaskId);
+                    this.saveTasks();
+                    this.closeDetailsModal();
+                }
+            },
             
             openAddModal() {
                 document.getElementById('addModal').classList.add('show');
@@ -567,22 +815,28 @@
                 const name = document.getElementById('taskName').value;
                 const notes = document.getElementById('taskNotes').value;
                 const date = document.getElementById('taskDate').value;
-                const tags = Array.from(document.querySelectorAll('.quick-tag.active-school, .quick-tag.active-home, .quick-tag.active-misc'))
+                const reminder = document.getElementById('taskReminder').value;
+                const tags = Array.from(document.querySelectorAll('#tagButtons .quick-tag.active-school, #tagButtons .quick-tag.active-home, #tagButtons .quick-tag.active-misc'))
                     .map(btn => btn.textContent);
                 
                 if (name) {
+                    const maxOrder = Math.max(0, ...this.tasks.map(t => t.order || 0));
                     this.tasks.push({
                         id: Date.now(),
                         name,
                         notes,
                         tags,
                         date,
-                        completed: false
+                        reminder,
+                        completed: false,
+                        order: maxOrder + 1
                     });
                     this.saveTasks();
                     this.setupTagFilter();
+                    this.setupTagButtons();
                     document.getElementById('taskName').value = '';
                     document.getElementById('taskNotes').value = '';
+                    document.getElementById('taskReminder').value = '';
                     this.closeAddModal();
                 }
             },
@@ -598,10 +852,12 @@
                 taskItems.forEach(item => {
                     let touchStartX = 0;
                     let touchStartY = 0;
+                    let isSwiping = false;
 
                     item.addEventListener('touchstart', (e) => {
                         touchStartX = e.touches[0].clientX;
                         touchStartY = e.touches[0].clientY;
+                        isSwiping = false;
                     }, { passive: true });
 
                     item.addEventListener('touchend', (e) => {
@@ -611,6 +867,7 @@
                         const diffY = touchStartY - touchEndY;
 
                         if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+                            isSwiping = true;
                             const taskId = parseInt(item.dataset.taskId);
                             
                             if (diffX > 0) {
@@ -621,6 +878,89 @@
                                 // Swipe right - complete
                                 this.completeTask(taskId);
                             }
+                        }
+                    }, { passive: true });
+
+                    // Long press for details
+                    item.addEventListener('touchstart', (e) => {
+                        this.touchStartX = e.touches[0].clientX;
+                        this.touchStartY = e.touches[0].clientY;
+                        
+                        this.longPressTimer = setTimeout(() => {
+                            if (!isSwiping) {
+                                const taskId = parseInt(item.dataset.taskId);
+                                this.openDetailsModal(taskId);
+                            }
+                        }, 600);
+                    }, { passive: true });
+
+                    item.addEventListener('touchend', () => {
+                        clearTimeout(this.longPressTimer);
+                    }, { passive: true });
+
+                    item.addEventListener('touchmove', () => {
+                        clearTimeout(this.longPressTimer);
+                    }, { passive: true });
+                });
+
+                // Setup drag to reorder
+                if (this.sortMode) {
+                    this.setupDragListeners();
+                }
+            },
+
+            setupDragListeners() {
+                const taskItems = document.querySelectorAll('.task-item');
+                let draggedItem = null;
+                let placeholder = null;
+
+                taskItems.forEach(item => {
+                    item.addEventListener('touchstart', (e) => {
+                        const handle = e.target.closest('.drag-handle');
+                        if (handle && this.sortMode) {
+                            draggedItem = item;
+                            item.classList.add('dragging');
+                            placeholder = item.cloneNode(true);
+                            placeholder.style.opacity = '0.3';
+                            item.parentNode.insertBefore(placeholder, item);
+                        }
+                    }, { passive: true });
+
+                    item.addEventListener('touchmove', (e) => {
+                        if (!draggedItem || !this.sortMode) return;
+                        
+                        const touchX = e.touches[0].clientX;
+                        const touchY = e.touches[0].clientY;
+                        const rect = item.getBoundingClientRect();
+                        
+                        if (draggedItem !== item && 
+                            touchY > rect.top && touchY < rect.bottom) {
+                            if (draggedItem.compareDocumentPosition(item) & 4) {
+                                item.parentNode.insertBefore(draggedItem, item);
+                            } else {
+                                item.parentNode.insertBefore(draggedItem, item.nextSibling);
+                            }
+                        }
+                    }, { passive: true });
+
+                    item.addEventListener('touchend', () => {
+                        if (draggedItem && this.sortMode) {
+                            draggedItem.classList.remove('dragging');
+                            if (placeholder && placeholder.parentNode) {
+                                placeholder.parentNode.removeChild(placeholder);
+                            }
+
+                            // Update order
+                            const items = document.querySelectorAll('.task-item');
+                            items.forEach((el, index) => {
+                                const taskId = parseInt(el.dataset.taskId);
+                                const task = this.tasks.find(t => t.id === taskId);
+                                if (task) task.order = index;
+                            });
+                            this.saveTasks();
+
+                            draggedItem = null;
+                            placeholder = null;
                         }
                     }, { passive: true });
                 });
@@ -635,8 +975,10 @@
                 } else {
                     list.innerHTML = tasks.map(task => {
                         const dotClass = task.tags?.[0] ? `dot-${task.tags[0]}` : 'dot-school';
+                        const dragHandle = this.sortMode ? '<span class="drag-handle">⋮</span>' : '';
                         return `
-                            <div class="task-item" data-task-id="${task.id}">
+                            <div class="task-item" data-task-id="${task.id}" ontouchstart="app.setupSwipeListeners()">
+                                ${dragHandle}
                                 <div class="task-dot ${dotClass}"></div>
                                 <div class="task-content">
                                     <div class="task-name">${task.name}</div>
@@ -654,7 +996,7 @@
                 const progress = this.tasks.filter(t => t.completed && t.date === this.getToday()).length;
                 const total = this.tasks.filter(t => t.date === this.getToday()).length;
                 document.getElementById('progressFill').style.width = total > 0 ? (progress / total * 100) + '%' : '0%';
-                document.getElementById('progressText').textContent = `${progress}/${total} tasks done today`;
+                document.getElementById('progressText').textContent = `${progress}/${total}`;
 
                 // Update filter tags
                 this.setupTagFilter();
