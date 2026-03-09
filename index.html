@@ -16,7 +16,7 @@
         }
 
         @font-face {
-            font-family: 'SaansSemiMono-Regular';
+            font-family: 'SaansSemiMono';
             src: url('fonts/SaansSemiMono-TRIAL-Regular.woff2') format('woff2');
             font-weight: 300;
             font-style: normal;
@@ -119,7 +119,7 @@
         .progress-text {
             font-size: 11px;
             color: #F5E6D3;
-            font-weight: 600;
+            font-weight: 300;
             white-space: nowrap;
             margin-left: 6px;
             text-shadow: 0 1px 2px rgba(0,0,0,0.1);
@@ -135,8 +135,9 @@
         .tab {
             padding: 8px 16px;
             border-radius: 20px;
+            letter-spacing: 1px;
             font-size: 13px;
-            font-weight: 600;
+            font-weight: 300;
             border: none;
             cursor: pointer;
             background: #D8CFB6;
@@ -161,7 +162,8 @@
             padding: 6px 12px;
             border-radius: 16px;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 200;
+            letter-spacing: -1px;
             border: none;
             cursor: pointer;
             background: #D8CFB6;
@@ -197,7 +199,7 @@
             padding: 6px 12px;
             border-radius: 12px;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 300;
             border: none;
             cursor: pointer;
             background: #D8CFB6;
@@ -260,7 +262,7 @@
         .dot-misc { background: #f0b5d4; }
         
         .task-content { flex: 1; min-width: 0; }
-        .task-name { color: #1e1e1e; font-weight: 500; font-size: 14px; }
+        .task-name { color: #1e1e1e; font-weight: 200; font-size: 14px; font-family: 'Tobias', Georgia, serif; }
         .task-notes { color: #1e1e1e; font-size: 12px; margin-top: 3px; opacity: 0.7; }
         
         .task-actions {
@@ -278,7 +280,7 @@
             padding: 8px 12px;
             border: none;
             border-radius: 8px;
-            font-weight: 600;
+            font-weight: 300;
             font-size: 12px;
             cursor: pointer;
             transition: all 0.2s;
@@ -375,7 +377,7 @@
         }
         
         .form-group { margin-bottom: 16px; }
-        .form-label { font-size: 12px; font-weight: 600; color: #666; margin-bottom: 6px; display: block; text-transform: uppercase; }
+        .form-label { font-size: 12px; font-weight: 300; color: #666; margin-bottom: 6px; display: block; text-transform: uppercase; }
         .form-input, .form-textarea { 
             width: 100%; 
             padding: 12px 16px; 
@@ -390,13 +392,13 @@
         .form-textarea { height: 80px; resize: none; }
         
         .quick-tags { display: flex; gap: 8px; flex-wrap: wrap; }
-        .quick-tag { padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; background: #D8CFB6; color: #666; transition: all 0.2s; }
+        .quick-tag { padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 300; border: none; cursor: pointer; background: #D8CFB6; color: #666; transition: all 0.2s; }
         .quick-tag.active-school { background: #FB7B41; color: white; }
         .quick-tag.active-home { background: #d4b5f0; color: #5a3a7a; }
         .quick-tag.active-misc { background: #f0b5d4; color: #7a3a5a; }
         
         .modal-buttons { display: flex; gap: 8px; margin-top: 20px; }
-        .modal-buttons button { flex: 1; padding: 12px 16px; border: none; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer; }
+        .modal-buttons button { flex: 1; padding: 12px 16px; border: none; border-radius: 12px; font-weight: 300; font-size: 14px; cursor: pointer; }
         .btn-cancel { background: #D8CFB6; color: #1e1e1e; }
         .btn-submit { background: linear-gradient(90deg, #FB7B41, #FF9CFA); color: white; }
         .btn-delete { background: #f5a5a5; color: #8a3a3a; }
@@ -415,7 +417,7 @@
             padding: 8px 12px;
             border-radius: 16px;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 300;
             border: none;
             cursor: pointer;
             background: #F0B5D4;
@@ -435,7 +437,7 @@
 
         .details-label {
             font-size: 11px;
-            font-weight: 700;
+            font-weight: 300;
             color: #888;
             text-transform: uppercase;
             letter-spacing: 0.5px;
