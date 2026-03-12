@@ -105,7 +105,7 @@
             overflow: hidden;
             display: flex;
             align-items: center;
-            padding: 0 8px;
+            padding: 0;
         }
         
         .progress-fill {
@@ -118,11 +118,10 @@
 
         .progress-text {
             font-size: 11px;
-            color: #F5E6D3;
+            color: #1e1e1e;
             font-weight: 300;
             white-space: nowrap;
-            margin-left: 6px;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            margin-left: 10px;
         }
         
         .tabs {
@@ -210,6 +209,11 @@
         .sort-btn.active {
             background: #FB7B41;
             color: white;
+        }
+        .navBar {
+            display: flex;
+            flex-direction: row;
+            width: 100%;
         }
         
         .content {
@@ -471,17 +475,18 @@
                 </div>
             </div>
 
+
             <div class="tabs">
                 <button class="tab" onclick="app.setView('scheduled')">SCHEDULED</button>
                 <button class="tab active" onclick="app.setView('today')">TODAY</button>
                 <button class="tab" onclick="app.setView('complete')">COMPLETE</button>
             </div>
-
+            <div class="navBar">
             <div class="tag-filter" id="tagFilter"></div>
 
             <div class="sort-controls">
                 <button class="sort-btn" onclick="app.toggleSort('manual')">SORT</button>
-            </div>
+            </div></div>
         </div>
     </div>
     
