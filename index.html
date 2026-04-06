@@ -177,7 +177,7 @@
     .task-card {
       background: var(--card); border-radius: 100px; padding: 12px 16px; display: flex;
       align-items: center; gap: 12px; user-select: none;
-      -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-y;
+      -webkit-user-select: none; -webkit-touch-callout: none;
       transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease; position: relative;
     }
     
@@ -188,7 +188,7 @@
       background: color-mix(in srgb, var(--card) 60%, transparent);
     }
     
-    .task-card.dragging { transition: none; z-index: 10; box-shadow: 0 12px 24px rgba(0,0,0,0.15) !important; transform: scale(1.02) !important; border: none !important; background: var(--card) !important; }
+    .task-card.dragging { transition: none; z-index: 10; }
     .task-card.flying-left { transform: translateX(-120%) !important; opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; }
     .task-card.flying-right { transform: translateX(120%) !important; opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; }
 
@@ -229,8 +229,7 @@
       justify-content: center;
       align-items: center;
       position: relative;
-      /* Increased z-index so the FAB floats perfectly above the modal background */
-      z-index: 22;
+      z-index: 15;
     }
 
     .fab {
@@ -245,7 +244,8 @@
     .fab svg { width: 28px; height: 28px; stroke: #FB7B41; stroke-width: 2.5; transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
     .fab.open svg { transform: rotate(135deg); }
 
-    .modal-overlay { position: absolute; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; padding: 0 16px 90px; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    /* Increased bottom padding to 120px to raise the card completely above the FAB 'X' */
+    .modal-overlay { position: absolute; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; padding: 0 16px 120px; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
     .modal-overlay.open { opacity: 1; pointer-events: all; }
     .modal-backdrop { position: absolute; inset: 0; background: rgba(42, 37, 32, 0.2); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
     .modal-card {
@@ -331,7 +331,7 @@
   ];
 
   const uid = () => "t" + Math.random().toString(36).slice(2, 9);
-  const SK = "bel_tasks_v10";
+  const SK = "bel_tasks_v11";
 
   function loadLocal() { 
     try { 
@@ -350,11 +350,18 @@
     try { localStorage.setItem(SK, JSON.stringify({tasks, cats, gh, ts: Date.now()})); } catch {} 
   }
 
-  // GitHub Sync Utilities
+  // Safe URL Parser for GitHub Gists
+  function extractGistId(input) {
+    let s = input.trim();
+    if (s.includes('/')) s = s.split('/').pop();
+    return s;
+  }
+
   async function ghLoad(c) { 
-    if (!c.gistId || !c.token) return null; 
+    const id = extractGistId(c.gistId);
+    if (!id || !c.token) return null; 
     try { 
-      const r = await fetch(`https://api.github.com/gists/${c.gistId}`, { headers: { Authorization: `token ${c.token}` } }); 
+      const r = await fetch(`https://api.github.com/gists/${id}`, { headers: { Authorization: `token ${c.token}` } }); 
       if(!r.ok) return null; 
       const g = await r.json(); 
       const f = g.files?.["tasks.json"]; 
@@ -363,9 +370,10 @@
   }
 
   async function ghSave(c, tasks, cats) { 
-    if(!c.gistId || !c.token) return false; 
+    const id = extractGistId(c.gistId);
+    if (!id || !c.token) return false; 
     try { 
-      const r = await fetch(`https://api.github.com/gists/${c.gistId}`, {
+      const r = await fetch(`https://api.github.com/gists/${id}`, {
         method: "PATCH",
         headers: { Authorization: `token ${c.token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ files: { "tasks.json": { content: JSON.stringify({tasks, cats, ts: Date.now()}, null, 2) } } })
@@ -477,7 +485,8 @@
           onPointerDown={onPD} onPointerMove={onPM} onPointerUp={onPU} onPointerCancel={onPU} 
           style={{ 
             transform: !flying && !sortMode ? `translateX(${dx}px)` : undefined,
-            cursor: sortMode ? "grab" : "default" 
+            cursor: sortMode ? "grab" : "default",
+            touchAction: sortMode ? "none" : "pan-y"
           }}
         >
           <div className="task-dot" style={dot} />
@@ -507,8 +516,8 @@
           <button className="settings-close" onClick={onClose}>×</button>
           <div className="settings-title">Sync Settings</div>
           
-          <div className="settings-label">GitHub Gist ID</div>
-          <input className="settings-input" value={gist} onChange={e => setGist(e.target.value)} placeholder="e.g. abc123def456..." />
+          <div className="settings-label">GitHub Gist Link or ID</div>
+          <input className="settings-input" value={gist} onChange={e => setGist(e.target.value)} placeholder="e.g. gist.github.com/abc..." />
           
           <div className="settings-label">Personal Access Token</div>
           <input className="settings-input" type="password" value={token} onChange={e => setToken(e.target.value)} placeholder="ghp_..." />
@@ -841,7 +850,7 @@
           onSwipeRight={() => doRight(t.id)} 
           sortMode={sortMode} 
           onLongPress={() => openEdit(t)}
-          onSortStart={() => onSortStart(t.id)}
+          onSortStart={onSortStart(t.id)}
         />
       </div>
     ));
