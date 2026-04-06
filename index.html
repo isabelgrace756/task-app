@@ -177,7 +177,7 @@
     .task-card {
       background: var(--card); border-radius: 100px; padding: 12px 16px; display: flex;
       align-items: center; gap: 12px; user-select: none;
-      -webkit-user-select: none; -webkit-touch-callout: none;
+      -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-y;
       transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease; position: relative;
     }
     
@@ -188,7 +188,7 @@
       background: color-mix(in srgb, var(--card) 60%, transparent);
     }
     
-    .task-card.dragging { transition: none; z-index: 10; }
+    .task-card.dragging { transition: none; z-index: 10; box-shadow: 0 12px 24px rgba(0,0,0,0.15) !important; transform: scale(1.02) !important; border: none !important; background: var(--card) !important; }
     .task-card.flying-left { transform: translateX(-120%) !important; opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; }
     .task-card.flying-right { transform: translateX(120%) !important; opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; }
 
@@ -244,7 +244,6 @@
     .fab svg { width: 28px; height: 28px; stroke: #FB7B41; stroke-width: 2.5; transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
     .fab.open svg { transform: rotate(135deg); }
 
-    /* Increased bottom padding to 120px to raise the card completely above the FAB 'X' */
     .modal-overlay { position: absolute; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; padding: 0 16px 120px; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
     .modal-overlay.open { opacity: 1; pointer-events: all; }
     .modal-backdrop { position: absolute; inset: 0; background: rgba(42, 37, 32, 0.2); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
@@ -331,7 +330,7 @@
   ];
 
   const uid = () => "t" + Math.random().toString(36).slice(2, 9);
-  const SK = "bel_tasks_v11";
+  const SK = "bel_tasks_v12";
 
   function loadLocal() { 
     try { 
@@ -350,7 +349,7 @@
     try { localStorage.setItem(SK, JSON.stringify({tasks, cats, gh, ts: Date.now()})); } catch {} 
   }
 
-  // Safe URL Parser for GitHub Gists
+  // Safe URL Parser
   function extractGistId(input) {
     let s = input.trim();
     if (s.includes('/')) s = s.split('/').pop();
@@ -361,25 +360,15 @@
     const id = extractGistId(c.gistId);
     if (!id || !c.token) return null; 
     try { 
-      const r = await fetch(`https://api.github.com/gists/${id}`, { headers: { Authorization: `token ${c.token}` } }); 
+      // Added cache-busting timestamp so it never loads stale data
+      const r = await fetch(`https://api.github.com/gists/${id}?t=${Date.now()}`, { 
+        headers: { Authorization: `token ${c.token}`, "Cache-Control": "no-cache" } 
+      }); 
       if(!r.ok) return null; 
       const g = await r.json(); 
       const f = g.files?.["tasks.json"]; 
       return f ? JSON.parse(f.content) : null; 
     } catch { return null; } 
-  }
-
-  async function ghSave(c, tasks, cats) { 
-    const id = extractGistId(c.gistId);
-    if (!id || !c.token) return false; 
-    try { 
-      const r = await fetch(`https://api.github.com/gists/${id}`, {
-        method: "PATCH",
-        headers: { Authorization: `token ${c.token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ files: { "tasks.json": { content: JSON.stringify({tasks, cats, ts: Date.now()}, null, 2) } } })
-      }); 
-      return r.ok; 
-    } catch { return false; } 
   }
 
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -527,7 +516,7 @@
           </div>
           
           <button className="settings-btn" onClick={() => { setGhConfig({ gistId: gist.trim(), token: token.trim() }); onClose(); }}>Save Config</button>
-          <button className="settings-btn secondary" onClick={onSync}>Force Sync Now</button>
+          <button className="settings-btn secondary" onClick={() => onSync(false, true)}>Force Sync Now</button>
           
           {syncStatus && <div className="settings-status">{syncStatus}</div>}
         </div>
@@ -676,14 +665,17 @@
     const toastT = useRef(null);
     const { time, date } = useClock();
     const listRef = useRef(null);
+    const initialLoadDone = useRef(false);
 
-    useEffect(() => { saveLocal(tasks, cats, ghConfig); }, [tasks, cats, ghConfig]);
-
+    // Initial Gist Load with Cache Busting
     useEffect(() => {
       if (ghConfig.gistId && ghConfig.token) {
         ghLoad(ghConfig).then(d => {
           if (d?.tasks) { setTasks(d.tasks); if (d.cats) setCats(d.cats); }
+          initialLoadDone.current = true;
         });
+      } else {
+        initialLoadDone.current = true;
       }
     }, []);
 
@@ -691,19 +683,57 @@
       setToast(msg); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToast(null), 2000);
     }, []);
 
-    const syncNow = async () => {
-      setSyncStatus("Syncing...");
-      const ok = await ghSave(ghConfig, tasks, cats);
-      setSyncStatus(ok ? "✓ Synced!" : "✕ Failed");
-      if (ok) showToast("✓ Synced");
-      setTimeout(() => setSyncStatus(""), 3000);
-    };
+    // The Master Sync Function (handles UI saving and background beacon saving)
+    const syncNow = useCallback(async (isBackground = false, forceShowStatus = false) => {
+      const id = extractGistId(ghConfig.gistId);
+      if (!id || !ghConfig.token) return;
 
+      const payload = { files: { "tasks.json": { content: JSON.stringify({tasks, cats, ts: Date.now()}, null, 2) } } };
+
+      if (isBackground) {
+        // If app is being closed, fire a background keepalive beacon request
+        fetch(`https://api.github.com/gists/${id}`, {
+          method: "PATCH",
+          headers: { Authorization: `token ${ghConfig.token}`, "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          keepalive: true
+        }).catch(()=>{});
+        return;
+      }
+
+      if (forceShowStatus) setSyncStatus("Saving...");
+      try {
+        const r = await fetch(`https://api.github.com/gists/${id}`, {
+          method: "PATCH",
+          headers: { Authorization: `token ${ghConfig.token}`, "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (forceShowStatus) setSyncStatus(r.ok ? "✓ Saved" : "✕ Failed");
+      } catch {
+        if (forceShowStatus) setSyncStatus("✕ Failed");
+      }
+      if (forceShowStatus) setTimeout(() => setSyncStatus(""), 2000);
+    }, [tasks, cats, ghConfig]);
+
+    // Save to LocalStorage immediately, save to cloud with 1.5s debounce
     useEffect(() => {
-      if (!ghConfig.gistId || !ghConfig.token) return;
-      const t = setInterval(() => ghSave(ghConfig, tasks, cats), 120000);
-      return () => clearInterval(t);
-    }, [ghConfig, tasks, cats]);
+      saveLocal(tasks, cats, ghConfig);
+      
+      if (!initialLoadDone.current || !ghConfig.gistId) return;
+      const timer = setTimeout(() => syncNow(false), 1500);
+      return () => clearTimeout(timer);
+    }, [tasks, cats, ghConfig, syncNow]);
+
+    // Save completely in the background if the user instantly swipes the app away
+    useEffect(() => {
+      const handleHide = () => { if (document.visibilityState === 'hidden') syncNow(true); };
+      window.addEventListener("visibilitychange", handleHide);
+      window.addEventListener("pagehide", () => syncNow(true));
+      return () => {
+        window.removeEventListener("visibilitychange", handleHide);
+        window.removeEventListener("pagehide", () => syncNow(true));
+      };
+    }, [syncNow]);
 
     const mutate = useCallback((id, action) => {
       setTasks(prev => {
@@ -850,7 +880,7 @@
           onSwipeRight={() => doRight(t.id)} 
           sortMode={sortMode} 
           onLongPress={() => openEdit(t)}
-          onSortStart={onSortStart(t.id)}
+          onSortStart={() => onSortStart(t.id)}
         />
       </div>
     ));
