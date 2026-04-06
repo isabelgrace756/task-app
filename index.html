@@ -344,7 +344,7 @@
   ];
 
   const uid = () => "t" + Math.random().toString(36).slice(2, 9);
-  const SK = "bel_tasks_v12";
+  const SK = "bel_tasks_final";
 
   function loadLocal() { 
     try { 
@@ -363,7 +363,6 @@
     try { localStorage.setItem(SK, JSON.stringify({tasks, cats, gh, ts: Date.now()})); } catch {} 
   }
 
-  // Safe URL Parser
   function extractGistId(input) {
     let s = input.trim();
     if (s.includes('/')) s = s.split('/').pop();
@@ -374,9 +373,13 @@
     const id = extractGistId(c.gistId);
     if (!id || !c.token) return null; 
     try { 
-      // Added cache-busting timestamp so it never loads stale data
+      // Force bypass cache by adding dummy param & headers
       const r = await fetch(`https://api.github.com/gists/${id}?t=${Date.now()}`, { 
-        headers: { Authorization: `token ${c.token}`, "Cache-Control": "no-cache" } 
+        headers: { 
+          Authorization: `token ${c.token}`, 
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+          "Pragma": "no-cache"
+        } 
       }); 
       if(!r.ok) return null; 
       const g = await r.json(); 
@@ -508,7 +511,7 @@
   }
 
   /* ═══ Settings Modal ═══ */
-  function Settings({ open, onClose, ghConfig, setGhConfig, onSync, syncStatus }) {
+  function Settings({ open, onClose, ghConfig, setGhConfig, onSync, onPull, syncStatus }) {
     const [gist, setGist] = useState(ghConfig.gistId); const [token, setToken] = useState(ghConfig.token);
     useEffect(() => { setGist(ghConfig.gistId); setToken(ghConfig.token); }, [ghConfig]);
     
@@ -530,7 +533,11 @@
           </div>
           
           <button className="settings-btn" onClick={() => { setGhConfig({ gistId: gist.trim(), token: token.trim() }); onClose(); }}>Save Config</button>
-          <button className="settings-btn secondary" onClick={() => onSync(false, true)}>Force Sync Now</button>
+          
+          <div style={{display: 'flex', gap: '8px', marginTop: '18px'}}>
+            <button className="settings-btn secondary" style={{marginTop: 0}} onClick={onPull}>Force Pull</button>
+            <button className="settings-btn secondary" style={{marginTop: 0}} onClick={() => onSync(false, true)}>Force Push</button>
+          </div>
           
           {syncStatus && <div className="settings-status">{syncStatus}</div>}
         </div>
@@ -676,33 +683,58 @@
     const [syncStatus, setSyncStatus] = useState("");
     const [toast, setToast] = useState(null);
     
+    // Stable refs for background saving
+    const tasksRef = useRef(tasks);
+    const catsRef = useRef(cats);
+    useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+    useEffect(() => { catsRef.current = cats; }, [cats]);
+    
+    const isDirty = useRef(false);
     const toastT = useRef(null);
     const { time, date } = useClock();
     const listRef = useRef(null);
     const initialLoadDone = useRef(false);
 
-    // Initial Gist Load with Cache Busting
-    useEffect(() => {
-      if (ghConfig.gistId && ghConfig.token) {
-        ghLoad(ghConfig).then(d => {
-          if (d?.tasks) { setTasks(d.tasks); if (d.cats) setCats(d.cats); }
-          initialLoadDone.current = true;
-        });
-      } else {
-        initialLoadDone.current = true;
-      }
-    }, []);
-
     const showToast = useCallback(msg => {
       setToast(msg); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToast(null), 2000);
     }, []);
+
+    // Cloud Puller (Explicit pull from github bypassing cache)
+    const fetchCloud = useCallback(async (manual = false) => {
+      if (!ghConfig.gistId || !ghConfig.token) return;
+      if (manual) setSyncStatus("Pulling...");
+      const d = await ghLoad(ghConfig);
+      if (d?.tasks) {
+        setTasks(d.tasks);
+        if (d.cats) setCats(d.cats);
+        if (manual) { 
+          setSyncStatus("✓ Pulled!"); 
+          setTimeout(() => setSyncStatus(""), 2000); 
+          showToast("✓ Pulled from Cloud"); 
+        }
+      } else {
+        if (manual) { 
+          setSyncStatus("✕ Pull Failed"); 
+          setTimeout(() => setSyncStatus(""), 2000); 
+        }
+      }
+    }, [ghConfig, showToast]);
+
+    // Initial Gist Load with Cache Busting
+    useEffect(() => {
+      if (ghConfig.gistId && ghConfig.token) {
+        fetchCloud().then(() => { initialLoadDone.current = true; });
+      } else {
+        initialLoadDone.current = true;
+      }
+    }, [fetchCloud]);
 
     // The Master Sync Function (handles UI saving and background beacon saving)
     const syncNow = useCallback(async (isBackground = false, forceShowStatus = false) => {
       const id = extractGistId(ghConfig.gistId);
       if (!id || !ghConfig.token) return;
 
-      const payload = { files: { "tasks.json": { content: JSON.stringify({tasks, cats, ts: Date.now()}, null, 2) } } };
+      const payload = { files: { "tasks.json": { content: JSON.stringify({tasks: tasksRef.current, cats: catsRef.current, ts: Date.now()}, null, 2) } } };
 
       if (isBackground) {
         // If app is being closed, fire a background keepalive beacon request
@@ -727,29 +759,43 @@
         if (forceShowStatus) setSyncStatus("✕ Failed");
       }
       if (forceShowStatus) setTimeout(() => setSyncStatus(""), 2000);
-    }, [tasks, cats, ghConfig]);
+    }, [ghConfig]);
 
-    // Save to LocalStorage immediately, save to cloud with 1.5s debounce
+    // Save to LocalStorage immediately, save to cloud with 1.5s debounce ONLY if mutated
     useEffect(() => {
       saveLocal(tasks, cats, ghConfig);
       
-      if (!initialLoadDone.current || !ghConfig.gistId) return;
-      const timer = setTimeout(() => syncNow(false), 1500);
+      if (!initialLoadDone.current || !ghConfig.gistId || !isDirty.current) return;
+      const timer = setTimeout(() => {
+        syncNow(false);
+        isDirty.current = false;
+      }, 1500);
       return () => clearTimeout(timer);
     }, [tasks, cats, ghConfig, syncNow]);
 
     // Save completely in the background if the user instantly swipes the app away
     useEffect(() => {
-      const handleHide = () => { if (document.visibilityState === 'hidden') syncNow(true); };
-      window.addEventListener("visibilitychange", handleHide);
-      window.addEventListener("pagehide", () => syncNow(true));
-      return () => {
-        window.removeEventListener("visibilitychange", handleHide);
-        window.removeEventListener("pagehide", () => syncNow(true));
+      const handleVis = () => {
+        if (document.visibilityState === 'visible') {
+          fetchCloud(); // Auto pull new shortcut tasks when resuming
+        } else if (document.visibilityState === 'hidden') {
+          if (isDirty.current) { syncNow(true); isDirty.current = false; }
+        }
       };
-    }, [syncNow]);
+      const handleHide = () => { if (isDirty.current) { syncNow(true); isDirty.current = false; } };
+      
+      window.addEventListener("visibilitychange", handleVis);
+      window.addEventListener("pagehide", handleHide);
+      window.addEventListener("focus", () => fetchCloud()); // Extra fallback for iOS PWAs
+      return () => {
+        window.removeEventListener("visibilitychange", handleVis);
+        window.removeEventListener("pagehide", handleHide);
+        window.removeEventListener("focus", () => fetchCloud());
+      };
+    }, [fetchCloud, syncNow]);
 
     const mutate = useCallback((id, action) => {
+      isDirty.current = true;
       setTasks(prev => {
         const next = [...prev];
         const idx = next.findIndex(t => t.id === id);
@@ -773,6 +819,7 @@
     }, [showToast]);
 
     const handleSubmit = ({ title, notes, cat, due, repeat, editId, reschedule }) => {
+      isDirty.current = true;
       if (editId) {
         setTasks(prev => prev.map(t => 
           t.id === editId ? { ...t, ...(reschedule ? { due, repeat } : { title, notes, cat, due, repeat }) } : t
@@ -789,9 +836,10 @@
     const openEdit = task => { setEditTask(task); setModalMode("edit"); setModalOpen(true); };
     const openReschedule = task => { setEditTask(task); setModalMode("reschedule"); setModalOpen(true); };
     const closeModal = () => { setModalOpen(false); setEditTask(null); };
-    const addCat = c => setCats(prev => [...prev, c]);
     
+    const addCat = c => { isDirty.current = true; setCats(prev => [...prev, c]); };
     const deleteCat = name => {
+      isDirty.current = true;
       setCats(prev => prev.filter(c => c.name !== name));
       setTasks(prev => prev.map(t => t.cat === name ? { ...t, cat: cats.find(c => c.name !== name)?.name || "misc" } : t ));
       if (catFilter === name) setCatFilter("all");
@@ -867,6 +915,7 @@
         setDragId(did => {
           setDragOverId(oid => {
             if (did && oid && did !== oid) {
+              isDirty.current = true;
               setTasks(prev => {
                 const n = [...prev];
                 const fi = n.findIndex(x => x.id === did); const ti = n.findIndex(x => x.id === oid);
@@ -894,7 +943,7 @@
           onSwipeRight={() => doRight(t.id)} 
           sortMode={sortMode} 
           onLongPress={() => openEdit(t)}
-          onSortStart={() => onSortStart(t.id)}
+          onSortStart={onSortStart(t.id)} 
         />
       </div>
     ));
@@ -952,6 +1001,8 @@
             <button className={`sort-btn${sortMode ? " active" : ""}`} onClick={() => setSortMode(s => !s)}>SORT</button>
           </div>
 
+          {sortMode && <div className="swipe-hint">drag cards to reorder</div>}
+
           <div className="task-list" ref={listRef}>
             {visible.length === 0 && (
               <div className="empty-state">
@@ -980,7 +1031,7 @@
         </div>
 
         <Modal open={modalOpen} onClose={closeModal} onSubmit={handleSubmit} editTask={editTask} mode={modalMode} cats={cats} onAddCat={addCat} onDeleteCat={deleteCat} />
-        <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} ghConfig={ghConfig} setGhConfig={setGhConfig} onSync={syncNow} syncStatus={syncStatus} />
+        <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} ghConfig={ghConfig} setGhConfig={setGhConfig} onSync={syncNow} onPull={() => fetchCloud(true)} syncStatus={syncStatus} />
         
         <div className={`toast${toast ? " show" : ""}`}>{toast}</div>
       </div>
@@ -991,5 +1042,3 @@
 </script>
 </body>
 </html>
-
-
