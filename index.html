@@ -386,12 +386,12 @@
     const id = extractGistId(c.gistId);
     if (!id || !c.token) return null; 
     try { 
-      // Force bypass cache and use standard Bearer authorization
+      // Force bypass cache using a query parameter.
+      // Removed custom Cache-Control headers to prevent Safari CORS "Load failed" errors.
       const r = await fetch(`https://api.github.com/gists/${id}?t=${Date.now()}`, { 
         headers: { 
-          Authorization: `Bearer ${c.token}`, 
-          "Cache-Control": "no-store, no-cache, must-revalidate",
-          "Pragma": "no-cache"
+          Authorization: `Bearer ${c.token}`,
+          Accept: "application/vnd.github.v3+json"
         } 
       }); 
       if(!r.ok) {
@@ -760,13 +760,15 @@
           }
         } else {
           if (manual) { 
-            setSyncStatus("✕ Invalid Data Format"); 
+            setSyncStatus("✕ No Tasks Found"); 
             setTimeout(() => setSyncStatus(""), 2000); 
           }
         }
       } catch (e) {
         if (manual) {
-          setSyncStatus(`✕ Pull Failed: ${e.message}`);
+          let msg = e.message;
+          if (msg.includes("Failed to fetch") || msg.includes("Load failed")) msg = "Network Blocked";
+          setSyncStatus(`✕ ${msg}`);
           setTimeout(() => setSyncStatus(""), 3000);
         }
       }
@@ -792,7 +794,11 @@
         // If app is being closed, fire a background keepalive beacon request
         fetch(`https://api.github.com/gists/${id}`, {
           method: "PATCH",
-          headers: { Authorization: `Bearer ${ghConfig.token}`, "Content-Type": "application/json" },
+          headers: { 
+            Authorization: `Bearer ${ghConfig.token}`, 
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json"
+          },
           body: JSON.stringify(payload),
           keepalive: true
         }).catch(()=>{});
@@ -803,7 +809,11 @@
       try {
         const r = await fetch(`https://api.github.com/gists/${id}`, {
           method: "PATCH",
-          headers: { Authorization: `Bearer ${ghConfig.token}`, "Content-Type": "application/json" },
+          headers: { 
+            Authorization: `Bearer ${ghConfig.token}`, 
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json"
+          },
           body: JSON.stringify(payload)
         });
         
