@@ -29,7 +29,10 @@
       font-style: normal;
       font-display: swap;
     }
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    *, *::before, *::after { 
+      margin: 0; padding: 0; box-sizing: border-box; 
+      -webkit-tap-highlight-color: transparent; 
+    }
 
     :root {
       --bg: #fffaf5;
@@ -54,9 +57,12 @@
       color: var(--text-main);
       -webkit-font-smoothing: antialiased;
       overscroll-behavior-y: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
 
     input, textarea, button, select { font-family: inherit; outline: none; }
+    input, textarea { -webkit-user-select: text; user-select: text; }
     ::-webkit-scrollbar { display: none; }
 
     .app {
@@ -183,7 +189,7 @@
     .swipe-bg {
       position: absolute; inset: 0; border-radius: 100px; display: flex; align-items: center;
       padding: 0 24px; color: white; font-size: 12px; font-weight: 700;
-      letter-spacing: 0.5px; transition: opacity 0.15s;
+      letter-spacing: 0.5px; transition: opacity 0.15s; pointer-events: none;
     }
     .swipe-bg.left { background: #a1c2a8; justify-content: flex-end; color: #3d4a40; }
     .swipe-bg.right { background: #FB7B41; justify-content: flex-start; color: #4a2822; }
@@ -192,6 +198,7 @@
       background: var(--card); border-radius: 100px; padding: 12px 16px; display: flex;
       align-items: center; gap: 12px; user-select: none;
       -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-y;
+      -webkit-tap-highlight-color: transparent;
       transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease; position: relative;
     }
     
@@ -202,7 +209,7 @@
       background: color-mix(in srgb, var(--card) 60%, transparent);
     }
     
-    .task-card.dragging { transition: none; z-index: 10; box-shadow: 0 12px 24px rgba(0,0,0,0.15) !important; transform: scale(1.02) !important; border: none !important; background: var(--card) !important; }
+    .task-card.dragging { transition: none; z-index: 10; }
     .task-card.flying-left { transform: translateX(-120%) !important; opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; }
     .task-card.flying-right { transform: translateX(120%) !important; opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; }
 
@@ -243,7 +250,7 @@
       justify-content: center;
       align-items: center;
       position: relative;
-      z-index: 15;
+      z-index: 22;
     }
 
     .fab {
@@ -363,36 +370,49 @@
     try { localStorage.setItem(SK, JSON.stringify({tasks, cats, gh, ts: Date.now()})); } catch {} 
   }
 
-  // Safe URL Parser
+  // Robust URL Parser for GitHub Gists
   function extractGistId(input) {
     let s = input.trim();
-    if (s.includes('/')) s = s.split('/').pop();
-    return s;
+    try {
+      const url = new URL(s);
+      return url.pathname.split('/').filter(Boolean).pop();
+    } catch {
+      if (s.includes('/')) return s.split('/').pop();
+      return s;
+    }
   }
 
   async function ghLoad(c) { 
     const id = extractGistId(c.gistId);
     if (!id || !c.token) return null; 
     try { 
-      // Force bypass cache by adding dummy param & headers
+      // Force bypass cache and use standard Bearer authorization
       const r = await fetch(`https://api.github.com/gists/${id}?t=${Date.now()}`, { 
         headers: { 
-          Authorization: `token ${c.token}`, 
+          Authorization: `Bearer ${c.token}`, 
           "Cache-Control": "no-store, no-cache, must-revalidate",
           "Pragma": "no-cache"
         } 
       }); 
-      if(!r.ok) return null; 
+      if(!r.ok) {
+        if (r.status === 401) throw new Error("Unauthorized Token");
+        if (r.status === 404) throw new Error("Gist Not Found");
+        throw new Error("Network Error");
+      }
+      
       const g = await r.json(); 
-      const f = g.files?.["tasks.json"]; 
-      if (!f || !f.content) return null;
+      // Look for tasks.json, but gracefully fall back to the first available file if named differently
+      const fileKey = Object.keys(g.files || {}).find(k => k.toLowerCase().includes('task')) || Object.keys(g.files || {})[0];
+      const f = g.files?.[fileKey]; 
+      
+      if (!f || !f.content) throw new Error("Gist is empty");
 
       // Auto-heal trailing commas left by iOS Shortcuts (e.g. `[{"task":"1"},]`)
       const safeJson = f.content.replace(/,\s*([\]}])/g, '$1');
       return JSON.parse(safeJson); 
     } catch (err) { 
       console.error("Gist Parse Error:", err);
-      return null; 
+      throw err; 
     } 
   }
 
@@ -449,6 +469,11 @@
     const [flying, setFlying] = useState(null);
     const sx = useRef(null); const drag = useRef(false); const cardRef = useRef(null);
     const lpT = useRef(null); const didLP = useRef(false); const TH = 80;
+    const isMounted = useRef(true);
+
+    useEffect(() => {
+      return () => { isMounted.current = false; };
+    }, []);
 
     const onPD = e => {
       if (sortMode) {
@@ -473,8 +498,20 @@
       if (didLP.current) { sx.current = null; return; }
       if (!drag.current) { setDx(0); sx.current = null; return; }
       sx.current = null;
-      if (dx < -TH) { setFlying("left"); setTimeout(() => onSwipeLeft(), 300); } 
-      else if (dx > TH) { setFlying("right"); setTimeout(() => onSwipeRight(), 300); } 
+      if (dx < -TH) { 
+        setFlying("left"); 
+        setTimeout(() => { 
+          onSwipeLeft(); 
+          if (isMounted.current) { setFlying(null); setDx(0); }
+        }, 300); 
+      } 
+      else if (dx > TH) { 
+        setFlying("right"); 
+        setTimeout(() => { 
+          onSwipeRight(); 
+          if (isMounted.current) { setFlying(null); setDx(0); }
+        }, 300); 
+      } 
       else { setDx(0); }
       drag.current = false;
     };
@@ -711,19 +748,26 @@
     const fetchCloud = useCallback(async (manual = false) => {
       if (!ghConfig.gistId || !ghConfig.token) return;
       if (manual) setSyncStatus("Pulling...");
-      const d = await ghLoad(ghConfig);
-      if (d?.tasks) {
-        setTasks(d.tasks);
-        if (d.cats) setCats(d.cats);
-        if (manual) { 
-          setSyncStatus("✓ Pulled!"); 
-          setTimeout(() => setSyncStatus(""), 2000); 
-          showToast("✓ Pulled from Cloud"); 
+      try {
+        const d = await ghLoad(ghConfig);
+        if (d?.tasks) {
+          setTasks(d.tasks);
+          if (d.cats) setCats(d.cats);
+          if (manual) { 
+            setSyncStatus("✓ Pulled!"); 
+            setTimeout(() => setSyncStatus(""), 2000); 
+            showToast("✓ Pulled from Cloud"); 
+          }
+        } else {
+          if (manual) { 
+            setSyncStatus("✕ Invalid Data Format"); 
+            setTimeout(() => setSyncStatus(""), 2000); 
+          }
         }
-      } else {
-        if (manual) { 
-          setSyncStatus("✕ Pull Failed"); 
-          setTimeout(() => setSyncStatus(""), 2000); 
+      } catch (e) {
+        if (manual) {
+          setSyncStatus(`✕ Pull Failed: ${e.message}`);
+          setTimeout(() => setSyncStatus(""), 3000);
         }
       }
     }, [ghConfig, showToast]);
@@ -748,7 +792,7 @@
         // If app is being closed, fire a background keepalive beacon request
         fetch(`https://api.github.com/gists/${id}`, {
           method: "PATCH",
-          headers: { Authorization: `token ${ghConfig.token}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${ghConfig.token}`, "Content-Type": "application/json" },
           body: JSON.stringify(payload),
           keepalive: true
         }).catch(()=>{});
@@ -759,14 +803,20 @@
       try {
         const r = await fetch(`https://api.github.com/gists/${id}`, {
           method: "PATCH",
-          headers: { Authorization: `token ${ghConfig.token}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${ghConfig.token}`, "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
-        if (forceShowStatus) setSyncStatus(r.ok ? "✓ Saved" : "✕ Failed");
+        
+        if (forceShowStatus) {
+            if (r.ok) setSyncStatus("✓ Saved");
+            else if (r.status === 401) setSyncStatus("✕ Unauthorized Token");
+            else if (r.status === 404) setSyncStatus("✕ Gist Not Found");
+            else setSyncStatus("✕ Failed");
+        }
       } catch {
-        if (forceShowStatus) setSyncStatus("✕ Failed");
+        if (forceShowStatus) setSyncStatus("✕ Network Error");
       }
-      if (forceShowStatus) setTimeout(() => setSyncStatus(""), 2000);
+      if (forceShowStatus) setTimeout(() => setSyncStatus(""), 3000);
     }, [ghConfig]);
 
     // Save to LocalStorage immediately, save to cloud with 1.5s debounce ONLY if mutated
@@ -951,7 +1001,7 @@
           onSwipeRight={() => doRight(t.id)} 
           sortMode={sortMode} 
           onLongPress={() => openEdit(t)}
-          onSortStart={() => onSortStart(t.id)} 
+          onSortStart={onSortStart(t.id)} 
         />
       </div>
     ));
@@ -1009,8 +1059,6 @@
             <button className={`sort-btn${sortMode ? " active" : ""}`} onClick={() => setSortMode(s => !s)}>SORT</button>
           </div>
 
-          {sortMode && <div className="swipe-hint">drag cards to reorder</div>}
-
           <div className="task-list" ref={listRef}>
             {visible.length === 0 && (
               <div className="empty-state">
@@ -1050,5 +1098,3 @@
 </script>
 </body>
 </html>
-
-
