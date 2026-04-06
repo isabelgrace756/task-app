@@ -363,6 +363,7 @@
     try { localStorage.setItem(SK, JSON.stringify({tasks, cats, gh, ts: Date.now()})); } catch {} 
   }
 
+  // Safe URL Parser
   function extractGistId(input) {
     let s = input.trim();
     if (s.includes('/')) s = s.split('/').pop();
@@ -384,8 +385,15 @@
       if(!r.ok) return null; 
       const g = await r.json(); 
       const f = g.files?.["tasks.json"]; 
-      return f ? JSON.parse(f.content) : null; 
-    } catch { return null; } 
+      if (!f || !f.content) return null;
+
+      // Auto-heal trailing commas left by iOS Shortcuts (e.g. `[{"task":"1"},]`)
+      const safeJson = f.content.replace(/,\s*([\]}])/g, '$1');
+      return JSON.parse(safeJson); 
+    } catch (err) { 
+      console.error("Gist Parse Error:", err);
+      return null; 
+    } 
   }
 
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -943,7 +951,7 @@
           onSwipeRight={() => doRight(t.id)} 
           sortMode={sortMode} 
           onLongPress={() => openEdit(t)}
-          onSortStart={onSortStart(t.id)} 
+          onSortStart={() => onSortStart(t.id)} 
         />
       </div>
     ));
@@ -1042,3 +1050,5 @@
 </script>
 </body>
 </html>
+
+
