@@ -922,8 +922,8 @@
 
     const visible = tasks.filter(t => getTab(t) === tab && (catFilter === "all" || t.cat === catFilter));
     
-    const todayTotal = tasks.filter(t => t.due <= todayStr).length;
-    const todayDone = tasks.filter(t => t.due <= todayStr && t.status === "complete").length;
+    const todayTotal = tasks.filter(t => t.due === todayStr).length;
+    const todayDone = tasks.filter(t => t.due === todayStr && t.status === "complete").length;
     const pct = todayTotal > 0 ? Math.round((todayDone / todayTotal) * 100) : 0;
 
     const swipeLabels = {
