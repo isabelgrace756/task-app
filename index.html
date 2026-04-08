@@ -322,6 +322,210 @@
 
     .toast { position: absolute; bottom: 100px; left: 50%; background: rgba(51, 45, 39, 0.9); backdrop-filter: blur(8px); color: white; padding: 12px 24px; border-radius: 100px; font-size: 13px; font-weight: 600; white-space: nowrap; z-index: 30; opacity: 0; transform: translateX(-50%) translateY(14px); transition: opacity 0.3s, transform 0.3s; pointer-events: none; }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    /* ── Grocery Button ── */
+.grocery-btn {
+  width: 64px; height: 64px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.45);
+  cursor: pointer; padding: 0;
+  background: rgba(255,255,255,0.25);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.2s;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+.grocery-btn:active { transform: scale(0.95); }
+.grocery-btn svg { width: 26px; height: 26px; stroke: #BAB1EA; stroke-width: 2.2; }
+
+/* ── Grocery Modal ── */
+.grocery-overlay {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0 16px 16px;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.grocery-overlay.open { opacity: 1; pointer-events: all; }
+.grocery-overlay.open .modal-card {
+  transform: translateY(0) scale(1); opacity: 1;
+}
+
+.grocery-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px;
+}
+.grocery-title {
+  font-family: var(--serif); font-size: 26px; font-weight: 400;
+  letter-spacing: -0.5px;
+}
+.grocery-close {
+  background: none; border: none; font-size: 20px;
+  color: var(--text-sub); cursor: pointer; padding: 4px;
+  line-height: 1;
+}
+
+/* Weekly reset badge */
+.grocery-reset-info {
+  font-size: 11px; color: var(--text-sub); font-weight: 600;
+  letter-spacing: 0.5px; text-transform: uppercase;
+  margin-bottom: 14px; display: flex; align-items: center; gap: 6px;
+}
+.grocery-reset-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--sunset-grad); flex-shrink: 0;
+  background: #FB7B41;
+}
+
+/* Items list */
+.grocery-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 42dvh; overflow-y: auto; margin-bottom: 14px;
+  padding-right: 2px;
+}
+.grocery-list::-webkit-scrollbar { display: none; }
+
+.grocery-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); border-radius: 100px;
+  padding: 11px 16px;
+  transition: opacity 0.35s ease, transform 0.35s ease, max-height 0.4s ease;
+  max-height: 80px; overflow: hidden;
+}
+.grocery-item.checked {
+  opacity: 0.45;
+}
+.grocery-item.removing {
+  opacity: 0 !important;
+  transform: translateX(30px);
+  max-height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+  pointer-events: none;
+}
+
+.grocery-check {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid #c2b8a7; background: transparent;
+  flex-shrink: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; position: relative;
+}
+.grocery-item.checked .grocery-check {
+  background: var(--sunset-grad);
+  background: linear-gradient(135deg, #FB7B41, #FF9CFA);
+  border-color: transparent;
+}
+.grocery-check-tick {
+  width: 10px; height: 10px; opacity: 0;
+  transition: opacity 0.15s;
+}
+.grocery-item.checked .grocery-check-tick { opacity: 1; }
+
+.grocery-item-text {
+  flex: 1; font-family: var(--serif); font-size: 15px;
+  font-weight: 400; color: var(--text-main);
+  transition: color 0.3s, text-decoration 0.3s;
+}
+.grocery-item.checked .grocery-item-text {
+  color: var(--text-sub);
+  text-decoration: line-through;
+  text-decoration-color: #a89f95;
+}
+
+.grocery-item-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+  color: var(--text-sub); text-transform: uppercase;
+  background: rgba(0,0,0,0.06); border-radius: 100px;
+  padding: 3px 10px; flex-shrink: 0;
+}
+
+.grocery-item-del {
+  background: none; border: none; color: #c2b8a7;
+  font-size: 16px; cursor: pointer; padding: 2px 4px;
+  line-height: 1; opacity: 0.6; transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+.grocery-item-del:hover { opacity: 1; }
+
+/* Add item row */
+.grocery-add-row {
+  display: flex; gap: 8px; align-items: center;
+}
+.grocery-add-input {
+  flex: 1; background: var(--card); border: none;
+  border-radius: 100px; padding: 11px 18px;
+  font-size: 14px; color: var(--text-main);
+  font-family: var(--sans);
+}
+.grocery-add-input::placeholder { color: var(--text-sub); }
+.grocery-add-btn {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--sunset-grad); border: none;
+  color: var(--text-main); font-size: 22px;
+  font-weight: 300; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: transform 0.2s;
+}
+.grocery-add-btn:active { transform: scale(0.92); }
+
+/* Empty state */
+.grocery-empty {
+  text-align: center; padding: 28px 16px 20px;
+  color: var(--text-sub);
+}
+.grocery-empty-emoji { font-size: 28px; margin-bottom: 8px; }
+.grocery-empty-msg {
+  font-family: var(--serif); font-size: 16px;
+  font-weight: 400; color: var(--text-sub);
+  line-height: 1.4;
+}
+
+/* Edit weekly items toggle */
+.grocery-weekly-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; cursor: pointer;
+  padding: 8px 4px;
+}
+.grocery-weekly-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--text-sub);
+}
+.grocery-weekly-chevron {
+  font-size: 11px; color: var(--text-sub);
+  transition: transform 0.2s;
+}
+.grocery-weekly-chevron.open { transform: rotate(180deg); }
+
+.grocery-weekly-editor {
+  background: var(--card); border-radius: 20px; padding: 14px;
+  margin-bottom: 12px; overflow: hidden;
+  max-height: 0; opacity: 0;
+  transition: max-height 0.35s ease, opacity 0.3s ease, padding 0.3s ease;
+  padding-top: 0; padding-bottom: 0;
+}
+.grocery-weekly-editor.open {
+  max-height: 300px; opacity: 1;
+  padding-top: 14px; padding-bottom: 14px;
+}
+.grocery-weekly-desc {
+  font-size: 11px; color: var(--text-sub); margin-bottom: 10px;
+  line-height: 1.5;
+}
+.grocery-weekly-textarea {
+  width: 100%; background: rgba(255,255,255,0.35);
+  border: none; border-radius: 14px;
+  padding: 10px 14px; font-size: 13px;
+  color: var(--text-main); resize: none;
+  font-family: var(--sans); line-height: 1.6;
+  min-height: 90px;
+}
+.grocery-weekly-textarea::placeholder { color: var(--text-sub); }
+.grocery-weekly-save {
+  margin-top: 8px; width: 100%; padding: 10px;
+  border-radius: 100px; border: none;
+  background: var(--beige-mid); color: var(--text-main);
+  font-size: 13px; font-weight: 700; cursor: pointer;
+}
   </style>
 </head>
 <body>
@@ -347,6 +551,32 @@
     { id:"t3",title:"Print Denman poster",cat:"school",due:"2026-04-07",status:"pending",notes:"Check with print shop on size for large format",repeat:"never" },
     { id:"t4",title:"PT exercises",cat:"home",due:"2026-04-06",status:"pending",notes:"",repeat:"daily" }
   ];
+  // ── Grocery: Weekly items (edit these directly in code, or via the app UI) ──
+const DEFAULT_WEEKLY_ITEMS = [
+  { name: "cat food", tag: "🐱 pets" },
+  { name: "coffee", tag: "☕ pantry" },
+  { name: "bread", tag: "🍞 bakery" },
+  { name: "eggs", tag: "🥚 dairy" },
+  { name: "milk", tag: "🥛 dairy" },
+];
+
+const GROCERY_SK = "bel_grocery";
+
+function loadGrocery() {
+  try {
+    return JSON.parse(localStorage.getItem(GROCERY_SK)) || {};
+  } catch { return {}; }
+}
+function saveGrocery(data) {
+  try { localStorage.setItem(GROCERY_SK, JSON.stringify(data)); } catch {}
+}
+
+function getWeekKey() {
+  const d = new Date();
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const week = Math.ceil(((d - jan1) / 864e5 + jan1.getDay() + 1) / 7);
+  return `${d.getFullYear()}-W${week}`;
+}
 
   const uid = () => "t" + Math.random().toString(36).slice(2, 9);
   const SK = "bel_tasks_final";
@@ -709,6 +939,179 @@
       </div>
     );
   }
+  /* ═══ Grocery Modal ═══ */
+function GroceryModal({ open, onClose }) {
+  const gData = useRef(loadGrocery());
+
+  // Weekly items config — stored in localStorage so editable in-app
+  const [weeklyItems, setWeeklyItems] = useState(() => {
+    return gData.current.weeklyItems || DEFAULT_WEEKLY_ITEMS;
+  });
+
+  // The live grocery list for this week
+  const [items, setItems] = useState(() => {
+    const saved = gData.current;
+    const thisWeek = getWeekKey();
+    // Auto-populate if it's a new week or first time
+    if (saved.weekKey !== thisWeek) {
+      return (saved.weeklyItems || DEFAULT_WEEKLY_ITEMS).map(w => ({
+        id: uid(), name: w.name, tag: w.tag, checked: false
+      }));
+    }
+    return saved.items || [];
+  });
+
+  const [newItem, setNewItem] = useState("");
+  const [removing, setRemoving] = useState(new Set());
+  const [weeklyOpen, setWeeklyOpen] = useState(false);
+  const [weeklyDraft, setWeeklyDraft] = useState(() =>
+    (gData.current.weeklyItems || DEFAULT_WEEKLY_ITEMS).map(w => `${w.name} | ${w.tag}`).join("\n")
+  );
+  const inputRef = useRef(null);
+
+  // Persist whenever items or weeklyItems change
+  useEffect(() => {
+    const data = { items, weeklyItems, weekKey: getWeekKey() };
+    saveGrocery(data);
+    gData.current = data;
+  }, [items, weeklyItems]);
+
+  // Focus input when modal opens
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 350);
+  }, [open]);
+
+  const addItem = () => {
+    const name = newItem.trim();
+    if (!name) return;
+    setItems(prev => [{ id: uid(), name, tag: "", checked: false }, ...prev]);
+    setNewItem("");
+  };
+
+  const toggleCheck = (id) => {
+    setItems(prev => prev.map(it => it.id === id ? { ...it, checked: !it.checked } : it));
+    // After a delay, animate out and remove
+    const item = items.find(i => i.id === id);
+    if (!item?.checked) { // it's being checked (not unchecked)
+      setTimeout(() => {
+        setRemoving(r => new Set([...r, id]));
+        setTimeout(() => {
+          setItems(prev => prev.filter(i => i.id !== id));
+          setRemoving(r => { const n = new Set(r); n.delete(id); return n; });
+        }, 420);
+      }, 700);
+    }
+  };
+
+  const deleteItem = (id) => {
+    setRemoving(r => new Set([...r, id]));
+    setTimeout(() => {
+      setItems(prev => prev.filter(i => i.id !== id));
+      setRemoving(r => { const n = new Set(r); n.delete(id); return n; });
+    }, 380);
+  };
+
+  const saveWeeklyItems = () => {
+    const parsed = weeklyDraft.split("\n")
+      .map(line => line.trim()).filter(Boolean)
+      .map(line => {
+        const parts = line.split("|").map(s => s.trim());
+        return { name: parts[0] || line, tag: parts[1] || "" };
+      });
+    setWeeklyItems(parsed);
+    setWeeklyOpen(false);
+  };
+
+  const resetWeekly = () => {
+    const fresh = weeklyItems.map(w => ({ id: uid(), name: w.name, tag: w.tag, checked: false }));
+    setItems(fresh);
+  };
+
+  const pendingItems = items.filter(i => !i.checked);
+  const isEmpty = items.length === 0;
+
+  return (
+    <div className={`grocery-overlay${open ? " open" : ""}`}>
+      <div className="modal-backdrop" onClick={onClose} />
+      <div className="modal-card" style={{ maxHeight: "82dvh", paddingBottom: 20 }} onClick={e => e.stopPropagation()}>
+
+        <div className="grocery-header">
+          <div className="grocery-title">Grocery</div>
+          <button className="grocery-close" onClick={onClose}>×</button>
+        </div>
+
+        {/* Weekly reset info + reset button */}
+        <div className="grocery-reset-info">
+          <div className="grocery-reset-dot" />
+          <span>resets weekly</span>
+          <button onClick={resetWeekly} style={{
+            marginLeft: "auto", background: "var(--card)", border: "none",
+            borderRadius: 100, padding: "3px 12px", fontSize: 11, fontWeight: 700,
+            color: "var(--text-sub)", cursor: "pointer", letterSpacing: "0.5px"
+          }}>↺ reset now</button>
+        </div>
+
+        {/* Weekly items editor */}
+        <div className="grocery-weekly-toggle" onClick={() => setWeeklyOpen(o => !o)}>
+          <span className="grocery-weekly-label">Edit weekly items</span>
+          <span className={`grocery-weekly-chevron${weeklyOpen ? " open" : ""}`}>▾</span>
+        </div>
+        <div className={`grocery-weekly-editor${weeklyOpen ? " open" : ""}`}>
+          <div className="grocery-weekly-desc">
+            One item per line. Optionally add a tag with a pipe: <strong>cat food | 🐱 pets</strong>
+          </div>
+          <textarea
+            className="grocery-weekly-textarea"
+            value={weeklyDraft}
+            onChange={e => setWeeklyDraft(e.target.value)}
+            placeholder={"cat food | 🐱 pets\neggs | 🥚 dairy"}
+          />
+          <button className="grocery-weekly-save" onClick={saveWeeklyItems}>Save Weekly Items</button>
+        </div>
+
+        {/* List */}
+        {isEmpty ? (
+          <div className="grocery-empty">
+            <div className="grocery-empty-emoji">🛒</div>
+            <div className="grocery-empty-msg">Nothing left to buy,<br />your wallet can breathe!</div>
+          </div>
+        ) : (
+          <div className="grocery-list">
+            {items.map(item => (
+              <div
+                key={item.id}
+                className={`grocery-item${item.checked ? " checked" : ""}${removing.has(item.id) ? " removing" : ""}`}
+              >
+                <div className="grocery-check" onClick={() => toggleCheck(item.id)}>
+                  <svg className="grocery-check-tick" viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="1.5,5.5 4,8 8.5,2" />
+                  </svg>
+                </div>
+                <span className="grocery-item-text">{item.name}</span>
+                {item.tag && <span className="grocery-item-tag">{item.tag}</span>}
+                <button className="grocery-item-del" onClick={() => deleteItem(item.id)}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add item row */}
+        <div className="grocery-add-row">
+          <input
+            ref={inputRef}
+            className="grocery-add-input"
+            value={newItem}
+            onChange={e => setNewItem(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addItem()}
+            placeholder="Add an item..."
+          />
+          <button className="grocery-add-btn" onClick={addItem}>+</button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
 
   /* ═══ App Main Component ═══ */
   function App() {
@@ -725,6 +1128,8 @@
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [syncStatus, setSyncStatus] = useState("");
     const [toast, setToast] = useState(null);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [groceryOpen, setGroceryOpen] = useState(false);
     
     // Stable refs for background saving
     const tasksRef = useRef(tasks);
@@ -1100,13 +1505,30 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
           </div>
         </div>
 
-        <div className="bottom-area">
-          <button className={`fab${modalOpen ? " open" : ""}`} onClick={() => { if(modalOpen) closeModal(); else openNew(); }}>
-            <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
-        </div>
+        <div className="bottom-area" style={{ gap: 16 }}>
+  {/* Grocery button */}
+  <button
+    className="grocery-btn"
+    onClick={() => { setGroceryOpen(o => !o); if (modalOpen) closeModal(); }}
+    aria-label="Grocery list"
+  >
+    <svg viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <path d="M16 10a4 4 0 0 1-8 0"/>
+    </svg>
+  </button>
+
+  {/* Add task FAB */}
+  <button className={`fab${modalOpen ? " open" : ""}`} onClick={modalOpen ? closeModal : openNew}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  </button>
+</div>
 
         <Modal open={modalOpen} onClose={closeModal} onSubmit={handleSubmit} editTask={editTask} mode={modalMode} cats={cats} onAddCat={addCat} onDeleteCat={deleteCat} />
+        <GroceryModal open={groceryOpen} onClose={() => setGroceryOpen(false)} />
         <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} ghConfig={ghConfig} setGhConfig={setGhConfig} onSync={syncNow} onPull={() => fetchCloud(true)} syncStatus={syncStatus} />
         
         <div className={`toast${toast ? " show" : ""}`}>{toast}</div>
