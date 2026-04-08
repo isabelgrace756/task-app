@@ -432,12 +432,6 @@
   text-decoration-color: #a89f95;
 }
 
-.grocery-item-tag {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
-  color: var(--text-sub); text-transform: uppercase;
-  background: rgba(0,0,0,0.06); border-radius: 100px;
-  padding: 3px 10px; flex-shrink: 0;
-}
 
 .grocery-item-del {
   background: none; border: none; color: #c2b8a7;
@@ -553,22 +547,43 @@
   ];
   // ── Grocery: Weekly items (edit these directly in code, or via the app UI) ──
 const DEFAULT_WEEKLY_ITEMS = [
-  { name: "cat food", tag: "🐱 pets" },
-  { name: "coffee", tag: "☕ pantry" },
-  { name: "bread", tag: "🍞 bakery" },
-  { name: "eggs", tag: "🥚 dairy" },
-  { name: "milk", tag: "🥛 dairy" },
+  "cat food",
+  "coffee",
+  "bread",
+  "eggs",
+  "milk",
 ];
 
 const GROCERY_SK = "bel_grocery";
+  function uid() { return "t" + Math.random().toString(36).slice(2, 9); }
 
 function loadGrocery() {
   try {
-    return JSON.parse(localStorage.getItem(GROCERY_SK)) || {};
-  } catch { return {}; }
+    const d = JSON.parse(localStorage.getItem(GROCERY_SK));
+    if (d) return d;
+  } catch {}
+  return null;
 }
 function saveGrocery(data) {
   try { localStorage.setItem(GROCERY_SK, JSON.stringify(data)); } catch {}
+}
+
+function initGroceryState() {
+  const saved = loadGrocery();
+  const thisWeek = getWeekKey();
+  // Migrate old format (objects with name/tag) to plain strings
+  let weeklyItems = saved?.weeklyItems || DEFAULT_WEEKLY_ITEMS;
+  weeklyItems = weeklyItems.map(w => (typeof w === "object" ? w.name : w));
+
+  let items;
+  if (!saved || saved.weekKey !== thisWeek) {
+    // New week or first run — populate from weekly items
+    items = weeklyItems.map(name => ({ id: uid(), name, checked: false }));
+  } else {
+    // Same week — restore saved list, migrate old items that had tags
+    items = (saved.items || []).map(i => ({ id: i.id, name: i.name, checked: i.checked }));
+  }
+  return { items, weeklyItems };
 }
 
 function getWeekKey() {
@@ -578,7 +593,6 @@ function getWeekKey() {
   return `${d.getFullYear()}-W${week}`;
 }
 
-  const uid = () => "t" + Math.random().toString(36).slice(2, 9);
   const SK = "bel_tasks_final";
 
   function loadLocal() { 
@@ -940,41 +954,17 @@ function getWeekKey() {
     );
   }
   /* ═══ Grocery Modal ═══ */
-function GroceryModal({ open, onClose }) {
-  const gData = useRef(loadGrocery());
-
-  // Weekly items config — stored in localStorage so editable in-app
-  const [weeklyItems, setWeeklyItems] = useState(() => {
-    return gData.current.weeklyItems || DEFAULT_WEEKLY_ITEMS;
-  });
-
-  // The live grocery list for this week
-  const [items, setItems] = useState(() => {
-    const saved = gData.current;
-    const thisWeek = getWeekKey();
-    // Auto-populate if it's a new week or first time
-    if (saved.weekKey !== thisWeek) {
-      return (saved.weeklyItems || DEFAULT_WEEKLY_ITEMS).map(w => ({
-        id: uid(), name: w.name, tag: w.tag, checked: false
-      }));
-    }
-    return saved.items || [];
-  });
-
+function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyItems }) {
   const [newItem, setNewItem] = useState("");
   const [removing, setRemoving] = useState(new Set());
   const [weeklyOpen, setWeeklyOpen] = useState(false);
-  const [weeklyDraft, setWeeklyDraft] = useState(() =>
-    (gData.current.weeklyItems || DEFAULT_WEEKLY_ITEMS).map(w => `${w.name} | ${w.tag}`).join("\n")
-  );
+  const [weeklyDraft, setWeeklyDraft] = useState(() => weeklyItems.join("\n"));
   const inputRef = useRef(null);
 
-  // Persist whenever items or weeklyItems change
+  // Keep draft in sync if weeklyItems change externally
   useEffect(() => {
-    const data = { items, weeklyItems, weekKey: getWeekKey() };
-    saveGrocery(data);
-    gData.current = data;
-  }, [items, weeklyItems]);
+    setWeeklyDraft(weeklyItems.join("\n"));
+  }, [weeklyItems]);
 
   // Focus input when modal opens
   useEffect(() => {
@@ -984,15 +974,14 @@ function GroceryModal({ open, onClose }) {
   const addItem = () => {
     const name = newItem.trim();
     if (!name) return;
-    setItems(prev => [{ id: uid(), name, tag: "", checked: false }, ...prev]);
+    setItems(prev => [{ id: uid(), name, checked: false }, ...prev]);
     setNewItem("");
   };
 
   const toggleCheck = (id) => {
     setItems(prev => prev.map(it => it.id === id ? { ...it, checked: !it.checked } : it));
-    // After a delay, animate out and remove
     const item = items.find(i => i.id === id);
-    if (!item?.checked) { // it's being checked (not unchecked)
+    if (!item?.checked) {
       setTimeout(() => {
         setRemoving(r => new Set([...r, id]));
         setTimeout(() => {
@@ -1013,21 +1002,15 @@ function GroceryModal({ open, onClose }) {
 
   const saveWeeklyItems = () => {
     const parsed = weeklyDraft.split("\n")
-      .map(line => line.trim()).filter(Boolean)
-      .map(line => {
-        const parts = line.split("|").map(s => s.trim());
-        return { name: parts[0] || line, tag: parts[1] || "" };
-      });
+      .map(line => line.trim()).filter(Boolean);
     setWeeklyItems(parsed);
     setWeeklyOpen(false);
   };
 
   const resetWeekly = () => {
-    const fresh = weeklyItems.map(w => ({ id: uid(), name: w.name, tag: w.tag, checked: false }));
-    setItems(fresh);
+    setItems(weeklyItems.map(name => ({ id: uid(), name, checked: false })));
   };
 
-  const pendingItems = items.filter(i => !i.checked);
   const isEmpty = items.length === 0;
 
   return (
@@ -1058,13 +1041,13 @@ function GroceryModal({ open, onClose }) {
         </div>
         <div className={`grocery-weekly-editor${weeklyOpen ? " open" : ""}`}>
           <div className="grocery-weekly-desc">
-            One item per line. Optionally add a tag with a pipe: <strong>cat food | 🐱 pets</strong>
+            One item per line.
           </div>
           <textarea
             className="grocery-weekly-textarea"
             value={weeklyDraft}
             onChange={e => setWeeklyDraft(e.target.value)}
-            placeholder={"cat food | 🐱 pets\neggs | 🥚 dairy"}
+            placeholder={"cat food\neggs\nmilk"}
           />
           <button className="grocery-weekly-save" onClick={saveWeeklyItems}>Save Weekly Items</button>
         </div>
@@ -1088,7 +1071,6 @@ function GroceryModal({ open, onClose }) {
                   </svg>
                 </div>
                 <span className="grocery-item-text">{item.name}</span>
-                {item.tag && <span className="grocery-item-tag">{item.tag}</span>}
                 <button className="grocery-item-del" onClick={() => deleteItem(item.id)}>×</button>
               </div>
             ))}
@@ -1129,6 +1111,13 @@ function GroceryModal({ open, onClose }) {
     const [syncStatus, setSyncStatus] = useState("");
     const [toast, setToast] = useState(null);
     const [groceryOpen, setGroceryOpen] = useState(false);
+    const [groceryItems, setGroceryItems] = useState(() => initGroceryState().items);
+    const [weeklyItems, setWeeklyItems] = useState(() => initGroceryState().weeklyItems);
+
+    // Persist grocery state whenever it changes
+    useEffect(() => {
+      saveGrocery({ items: groceryItems, weeklyItems, weekKey: getWeekKey() });
+    }, [groceryItems, weeklyItems]);
     
     // Stable refs for background saving
     const tasksRef = useRef(tasks);
@@ -1545,7 +1534,7 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
 </div>
 
         <Modal open={modalOpen} onClose={closeModal} onSubmit={handleSubmit} editTask={editTask} mode={modalMode} cats={cats} onAddCat={addCat} onDeleteCat={deleteCat} />
-        <GroceryModal open={groceryOpen} onClose={() => setGroceryOpen(false)} />
+        <GroceryModal open={groceryOpen} onClose={() => setGroceryOpen(false)} items={groceryItems} setItems={setGroceryItems} weeklyItems={weeklyItems} setWeeklyItems={setWeeklyItems} />
         <Settings open={settingsOpen} onClose={() => setSettingsOpen(false)} ghConfig={ghConfig} setGhConfig={setGhConfig} onSync={syncNow} onPull={() => fetchCloud(true)} syncStatus={syncStatus} />
         
         <div className={`toast${toast ? " show" : ""}`}>{toast}</div>
