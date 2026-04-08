@@ -1358,9 +1358,26 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
       const g = {};
       visible.forEach(t => {
         const k = dueBucket(t.due);
-        if (!g[k]) g[k] = []; g[k].push(t);
+        if (!g[k]) g[k] = [];
+        g[k].push(t);
       });
-      return g;
+      // Sort tasks within each group by date ascending
+      Object.keys(g).forEach(k => {
+        g[k].sort((a, b) => (a.due || "").localeCompare(b.due || ""));
+      });
+      // Order groups: tomorrow, this week, next week, then remaining date buckets ascending
+      const PRIORITY = ["tomorrow", "this week", "next week"];
+      const orderedKeys = [
+        ...PRIORITY.filter(k => g[k]),
+        ...Object.keys(g).filter(k => !PRIORITY.includes(k)).sort((a, b) => {
+          const aDate = g[a][0]?.due || "";
+          const bDate = g[b][0]?.due || "";
+          return aDate.localeCompare(bDate);
+        })
+      ];
+      const ordered = {};
+      orderedKeys.forEach(k => { ordered[k] = g[k]; });
+      return ordered;
     }, [tab, visible]);
 
     // ── Sort Drag Logic ──
