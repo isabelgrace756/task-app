@@ -1047,7 +1047,7 @@ function GroceryModal({ open, onClose }) {
   const isEmpty = items.length === 0;
 
   return (
-    <div className={`grocery-overlay${open ? " open" : ""}`}>
+    <div className={`grocery-overlay${groceryOpen ? " open" : ""}`}>
       <div className="modal-backdrop" onClick={onClose} />
       <div className="modal-card" style={{ maxHeight: "82dvh", paddingBottom: 20 }} onClick={e => e.stopPropagation()}>
 
