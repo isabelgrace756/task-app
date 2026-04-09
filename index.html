@@ -706,7 +706,7 @@ function getWeekKey() {
   }
 
   /* ═══ TaskCard ═══ */
-  function TaskCard({ task, cats, onSwipeLeft, onSwipeRight, leftLabel, rightLabel, sortMode, onLongPress, onSortStart }) {
+  function TaskCard({ task, cats, onSwipeLeft, onSwipeRight, leftLabel, rightLabel, sortMode, onLongPress, onSortStart, currentTab }) {
     const [dx, setDx] = useState(0);
     const [flying, setFlying] = useState(null);
     const sx = useRef(null); const drag = useRef(false); const cardRef = useRef(null);
@@ -786,7 +786,7 @@ function getWeekKey() {
           <div className="task-info">
             <div className={`task-title${task.status === "complete" ? " done" : ""}`}>{task.title}</div>
             <div className="task-notes-row">
-              {task.due && <span>{task.status === "complete" ? "done ✓" : `due ${fmtShort(task.due)}`}</span>}
+              {task.due && !(currentTab === "today" && fmtShort(task.due) === "today") && <span>{task.status === "complete" ? "done ✓" : `due ${fmtShort(task.due)}`}</span>}
               {task.notes && <span><span style={{opacity:0.4, margin:"0 4px"}}>•</span>{task.notes}</span>}
               {task.repeat && task.repeat !== "never" && <span><span style={{opacity:0.4, margin:"0 4px"}}>•</span>↺ {task.repeat}</span>}
             </div>
@@ -1102,7 +1102,7 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
     const [cats, setCats] = useState(saved.current?.cats || DEFAULT_CATS);
     const [ghConfig, setGhConfig] = useState(saved.current?.gh || { gistId: "", token: "" });
     const [tab, setTab] = useState("today");
-    const [catFilter, setCatFilter] = useState("all");
+    const [catFilter, setCatFilter] = useState("no-work");
     const [modalOpen, setModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState("new");
     const [editTask, setEditTask] = useState(null);
@@ -1302,17 +1302,27 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
       isDirty.current = true;
       setCats(prev => prev.filter(c => c.name !== name));
       setTasks(prev => prev.map(t => t.cat === name ? { ...t, cat: cats.find(c => c.name !== name)?.name || "misc" } : t ));
-      if (catFilter === name) setCatFilter("all");
+      if (catFilter === name) setCatFilter("no-work");
     };
 
     const todayStr = toISO(new Date());
-    const getTab = (t) => {
+    const getTab = useCallback((t) => {
       if (t.status === "complete") return "complete";
       if (t.due <= todayStr) return "today";
       return "scheduled"; 
-    };
+    }, [todayStr]);
 
-    const visible = tasks.filter(t => getTab(t) === tab && (catFilter === "all" || t.cat === catFilter));
+    const visible = useMemo(() => {
+      const base = tasks.filter(t => getTab(t) === tab);
+      if (catFilter === "all") return base;
+      if (catFilter === "no-work") return base.filter(t => t.cat !== "work");
+      if (catFilter === "work-pin") {
+        const work = base.filter(t => t.cat === "work");
+        const rest = base.filter(t => t.cat !== "work");
+        return [...work, ...rest];
+      }
+      return base.filter(t => t.cat === catFilter);
+    }, [tasks, tab, catFilter, getTab]);
     
     const todayTotal = tasks.filter(t => 
   t.status !== "complete" && t.due <= todayStr  // all pending/overdue
@@ -1367,7 +1377,7 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
       const ordered = {};
       orderedKeys.forEach(k => { ordered[k] = g[k]; });
       return ordered;
-    }, [tab, visible]);
+    }, [tab, visible, catFilter]);
 
     // ── Sort Drag Logic ──
     const [dragId, setDragId] = useState(null);
@@ -1424,7 +1434,8 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
           onSwipeRight={() => doRight(t.id)} 
           sortMode={sortMode} 
           onLongPress={() => openEdit(t)}
-          onSortStart={onSortStart(t.id)} 
+          onSortStart={onSortStart(t.id)}
+          currentTab={tab}
         />
       </div>
     ));
@@ -1486,7 +1497,10 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
 
           <div className="filter-row">
             {cats.map(c => {
-              const isSel = catFilter === c.name;
+              const isWork = c.name === "work";
+              const isSel = isWork
+                ? catFilter === "work-pin"
+                : catFilter === c.name;
               return (
                 <div key={c.name} className="cat-pill" 
                      style={{ 
@@ -1495,7 +1509,13 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
                        border: isSel ? "1px solid transparent" : `1px solid color-mix(in srgb, ${c.color} 50%, transparent)`,
                        fontWeight: isSel ? 700 : 600
                      }} 
-                     onClick={() => setCatFilter(prev => prev === c.name ? "all" : c.name)}>
+                     onClick={() => {
+                       if (isWork) {
+                         setCatFilter(prev => prev === "work-pin" ? "no-work" : "work-pin");
+                       } else {
+                         setCatFilter(prev => prev === c.name ? "no-work" : c.name);
+                       }
+                     }}>
                   {c.name}
                 </div>
               );
