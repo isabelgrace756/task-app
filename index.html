@@ -1002,7 +1002,7 @@ function getWeekKey() {
                          style={{
                            background: isSel ? c.color : `color-mix(in srgb, ${c.color} 15%, transparent)`,
                            color: isSel ? "var(--text-main)" : c.color,
-                           border: isSel ? `1px solid transparent` : `1px solid color-mix(in srgb, ${c.color} 50%, transparent)`,
+                           border: isSel ? `1px solid transparent` : `1px solid color-mix(in srgb, ${c.color} 100%, transparent)`,
                            fontWeight: isSel ? 700 : 600
                          }} 
                          onClick={() => setCat(c.name)}>
@@ -1602,7 +1602,7 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
                      style={{ 
                        background: isSel ? c.color : `color-mix(in srgb, ${c.color} 15%, transparent)`, 
                        color: isSel ? "var(--text-main)" : c.color,
-                       border: isSel ? "1px solid transparent" : `1px solid color-mix(in srgb, ${c.color} 50%, transparent)`,
+                       border: isSel ? "1px solid transparent" : `1px solid color-mix(in srgb, ${c.color} 100%, transparent)`,
                        fontWeight: isSel ? 700 : 600
                      }} 
                      onClick={() => {
