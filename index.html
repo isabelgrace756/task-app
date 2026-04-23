@@ -616,6 +616,16 @@
   background: var(--beige-mid); color: var(--text-main);
   font-size: 13px; font-weight: 700; cursor: pointer;
 }
+    .modal-notes-editor {
+  width: 100%; background: var(--card); border: none; border-radius: 16px;
+  padding: 14px 16px; font-size: 14px; color: var(--text-main);
+  min-height: 60px; margin-bottom: 16px; outline: none;
+  line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+  -webkit-user-select: text; user-select: text;
+}
+.modal-notes-editor:empty::before {
+  content: attr(data-placeholder); color: var(--text-sub); pointer-events: none;
+}
   </style>
 </head>
 <body>
@@ -667,16 +677,24 @@ function saveGrocery(data) {
 function initGroceryState() {
   const saved = loadGrocery();
   const thisWeek = getWeekKey();
-  // Migrate old format (objects with name/tag) to plain strings
   let weeklyItems = saved?.weeklyItems || DEFAULT_WEEKLY_ITEMS;
   weeklyItems = weeklyItems.map(w => (typeof w === "object" ? w.name : w));
 
   let items;
   if (!saved || saved.weekKey !== thisWeek) {
-    // New week or first run — populate from weekly items
-    items = weeklyItems.map(name => ({ id: uid(), name, checked: false }));
+    // New week: keep any unchecked items from last week, then add weekly staples
+    // (deduplicating so weekly items that were already on the list aren't doubled)
+    const carried = (saved?.items || [])
+      .filter(i => !i.checked)
+      .map(i => ({ id: i.id, name: i.name, checked: false }));
+
+    const carriedNames = new Set(carried.map(i => i.name.toLowerCase()));
+    const freshWeekly = weeklyItems
+      .filter(name => !carriedNames.has(name.toLowerCase()))
+      .map(name => ({ id: uid(), name, checked: false }));
+
+    items = [...freshWeekly, ...carried];
   } else {
-    // Same week — restore saved list, migrate old items that had tags
     items = (saved.items || []).map(i => ({ id: i.id, name: i.name, checked: i.checked }));
   }
   return { items, weeklyItems };
@@ -883,7 +901,7 @@ function getWeekKey() {
             <div className={`task-title${task.status === "complete" ? " done" : ""}`}>{task.title}</div>
             <div className="task-notes-row">
               {task.due && !(currentTab === "today" && fmtShort(task.due) === "today") && <span>{task.status === "complete" ? "done ✓" : `due ${fmtShort(task.due)}`}</span>}
-              {task.notes && <span><span style={{opacity:0.4, margin:"0 4px"}}>•</span>{task.notes}</span>}
+              {task.notes && <span><span style={{opacity:0.4, margin:"0 4px"}}>•</span><span dangerouslySetInnerHTML={{ __html: task.notes.replace(/<[^>]*>/g, '') }} /></span>}
               {task.repeat && task.repeat !== "never" && <span><span style={{opacity:0.4, margin:"0 4px"}}>•</span>↺ {task.repeat}</span>}
             </div>
           </div>
@@ -993,7 +1011,24 @@ function getWeekKey() {
           {!isR && (
             <>
               <div className="modal-title-row"><span className="modal-pencil">✎</span><input className="modal-title-input" value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="New Task..." /></div>
-              <textarea className="modal-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add details or notes..." rows={2} />
+              <div
+  className="modal-notes-editor"
+  contentEditable
+  suppressContentEditableWarning
+  data-placeholder="Add details or notes..."
+  dangerouslySetInnerHTML={{ __html: notes }}
+  onInput={e => setNotes(e.currentTarget.innerHTML)}
+  onKeyDown={e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+      e.preventDefault();
+      document.execCommand("bold");
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === "i") {
+      e.preventDefault();
+      document.execCommand("italic");
+    }
+  }}
+/>
               <div className="modal-cats">
                 {cats.map(c => {
                   const isSel = cat === c.name;
@@ -1026,7 +1061,17 @@ function getWeekKey() {
           <div style={{ marginBottom: 16 }}>
             <div className="cal-strip">
               {calDays.map(d => (
-                <div key={d.iso} className={`cal-day${dueISO === d.iso ? " selected" : ""}`} onClick={() => {setDueISO(d.iso); setQuickPick("")}}>
+                <div key={d.iso} className={`cal-day${dueISO === d.iso ? " selected" : ""}`} onClick={() => {
+  setDueISO(d.iso);
+  // Sync quick-pill highlight to match the selected date
+  const t = new Date(); t.setHours(12,0,0,0);
+  const todayISO = toISO(t);
+  const tmrw = new Date(t); tmrw.setDate(tmrw.getDate() + 1);
+  const tmrwISO = toISO(tmrw);
+  if (d.iso === todayISO) setQuickPick("today");
+  else if (d.iso === tmrwISO) setQuickPick("tomorrow");
+  else setQuickPick("");
+}}>
                   <span className="day-name">{d.name}</span><span className="day-num">{d.num}</span>
                 </div>
               ))}
@@ -1040,7 +1085,15 @@ function getWeekKey() {
           </div>
 
           <div className="field-row">
-            <div className="field-col"><span className="field-label">Date</span><input type="date" className="field-input" value={dueISO} onChange={e => { setDueISO(e.target.value); setQuickPick(""); setCalCenter(new Date(e.target.value+"T12:00:00")); }} /></div>
+            <div className="field-col"><span className="field-label">Date</span><input type="date" className="field-input" value={dueISO} onChange={e => {
+  const v = e.target.value;
+  setDueISO(v); setCalCenter(new Date(v+"T12:00:00"));
+  const t = new Date(); t.setHours(12,0,0,0);
+  const tmrw = new Date(t); tmrw.setDate(tmrw.getDate() + 1);
+  if (v === toISO(t)) setQuickPick("today");
+  else if (v === toISO(tmrw)) setQuickPick("tomorrow");
+  else setQuickPick("");
+}} /></div>
             <div className="field-col"><span className="field-label">Repeat</span><div className="field-value" onClick={() => { const o = ["never","daily","weekdays","weekly","biweekly","monthly"]; setRepeat(o[(o.indexOf(repeat)+1) % o.length]); }}>{repeat === "never" ? "Never" : repeat}</div></div>
           </div>
           
@@ -1377,9 +1430,15 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
     const handleSubmit = ({ title, notes, cat, due, repeat, editId, reschedule }) => {
       isDirty.current = true;
       if (editId) {
-        setTasks(prev => prev.map(t => 
-          t.id === editId ? { ...t, ...(reschedule ? { due, repeat } : { title, notes, cat, due, repeat }) } : t
-        ));
+        setTasks(prev => prev.map(t => {
+      if (t.id !== editId) return t;
+      if (reschedule && t.repeat && t.repeat !== "never") {
+        // One-time reschedule: move due date but keep the original repeat pattern intact
+        // The repeat field stays unchanged; we do NOT overwrite it with whatever was in the modal
+        return { ...t, due };
+      }
+      return { ...t, ...(reschedule ? { due } : { title, notes, cat, due, repeat }) };
+    }));
         showToast(reschedule ? "✓ Rescheduled" : "✓ Updated");
       } else {
         setTasks(prev => [{ id: uid(), title, notes, cat, due, repeat, status: "pending" }, ...prev]);
