@@ -906,7 +906,7 @@ function getWeekKey() {
             <div className={`task-title${task.status === "complete" ? " done" : ""}`}>{task.title}</div>
             <div className="task-notes-row">
               {task.due && !(currentTab === "today" && fmtShort(task.due) === "today") && <span>{task.status === "complete" ? "done ✓" : `due ${fmtShort(task.due)}`}</span>}
-              {task.notes && <span><span style={{opacity:0.4, margin:"0 4px"}}>•</span><span dangerouslySetInnerHTML={{ __html: task.notes.replace(/<[^>]*>/g, '') }} /></span>}
+              {task.notes?.replace(/<[^>]*>/g, '').trim() && <span><span style={{opacity:0.4, margin:"0 4px"}}>•</span><span dangerouslySetInnerHTML={{ __html: task.notes.replace(/<[^>]*>/g, '') }} /></span>}
               {task.repeat && task.repeat !== "never" && <span><span style={{opacity:0.4, margin:"0 4px"}}>•</span>↺ {task.repeat}</span>}
             </div>
           </div>
@@ -1029,7 +1029,11 @@ function getWeekKey() {
   contentEditable
   suppressContentEditableWarning
   data-placeholder="Add details or notes..."
-  onInput={e => setNotes(e.currentTarget.innerHTML)}
+  onInput={e => {
+  const raw = e.currentTarget.innerHTML;
+  // If it's empty or just a leftover <br>, store empty string
+  setNotes(raw === "<br>" || raw === "<br/>" || !e.currentTarget.textContent.trim() ? "" : raw);
+}}
   onKeyDown={e => {
     if ((e.metaKey || e.ctrlKey) && e.key === "b") {
       e.preventDefault();
