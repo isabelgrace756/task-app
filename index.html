@@ -619,9 +619,14 @@
     .modal-notes-editor {
   width: 100%; background: var(--card); border: none; border-radius: 16px;
   padding: 14px 16px; font-size: 14px; color: var(--text-main);
-  min-height: 60px; margin-bottom: 16px; outline: none;
+  min-height: 200px; margin-bottom: 16px; outline: none;
   line-height: 1.5; white-space: pre-wrap; word-break: break-word;
   -webkit-user-select: text; user-select: text;
+      @media (min-width: 768px) {
+  .modal-notes-editor {
+    min-height: 120px;
+  }
+}
 }
 .modal-notes-editor:empty::before {
   content: attr(data-placeholder); color: var(--text-sub); pointer-events: none;
@@ -953,6 +958,7 @@ function getWeekKey() {
     const [calCenter, setCalCenter] = useState(new Date());
     const [quickPick, setQuickPick] = useState("today"); const [addingCat, setAddingCat] = useState(false);
     const [newCatName, setNewCatName] = useState("");
+    const notesRef = useRef(null);
 
     useEffect(() => {
       if (!open) return;
@@ -967,6 +973,12 @@ function getWeekKey() {
       }
       setAddingCat(false); setNewCatName("");
     }, [open, editTask]);
+
+    useEffect(() => {
+  if (open && notesRef.current) {
+    notesRef.current.innerHTML = notes;
+  }
+}, [open]);
 
     const calDays = useMemo(() => {
       const days = [];
@@ -1012,11 +1024,11 @@ function getWeekKey() {
             <>
               <div className="modal-title-row"><span className="modal-pencil">✎</span><input className="modal-title-input" value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="New Task..." /></div>
               <div
+  ref={notesRef}
   className="modal-notes-editor"
   contentEditable
   suppressContentEditableWarning
   data-placeholder="Add details or notes..."
-  dangerouslySetInnerHTML={{ __html: notes }}
   onInput={e => setNotes(e.currentTarget.innerHTML)}
   onKeyDown={e => {
     if ((e.metaKey || e.ctrlKey) && e.key === "b") {
