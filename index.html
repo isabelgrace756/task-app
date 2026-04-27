@@ -643,6 +643,30 @@
 <script type="text/babel">
   const { useState, useRef, useEffect, useCallback, useMemo } = React;
 
+  // ── Haptics helper ──
+  // Uses the Vibration API (Android + most browsers).
+  // On iOS Safari the Vibration API isn't available, but the Web Haptic Feedback
+  // API (navigator.hapticFeedback) is also not widely exposed — so we fall back
+  // silently. The patterns below are designed to feel intentional, not annoying.
+  const haptic = {
+    // Light tick as the card crosses the threshold — "you're about to do something"
+    threshold: () => {
+      try { navigator.vibrate?.([8]); } catch {}
+    },
+    // Satisfying double-pulse for completing a task ✓
+    complete: () => {
+      try { navigator.vibrate?.([12, 40, 20]); } catch {}
+    },
+    // Short snappy buzz for reschedule / move to today
+    reschedule: () => {
+      try { navigator.vibrate?.([10]); } catch {}
+    },
+    // Soft single buzz for delete / restore
+    action: () => {
+      try { navigator.vibrate?.([6]); } catch {}
+    },
+  };
+
   const DEFAULT_CATS = [
     { name: "home", color: "#BAB1EA" },
     { name: "school", color: "#FB7B41" },
@@ -687,8 +711,6 @@ function initGroceryState() {
 
   let items;
   if (!saved || saved.weekKey !== thisWeek) {
-    // New week: keep any unchecked items from last week, then add weekly staples
-    // (deduplicating so weekly items that were already on the list aren't doubled)
     const carried = (saved?.items || [])
       .filter(i => !i.checked)
       .map(i => ({ id: i.id, name: i.name, checked: false }));
@@ -747,8 +769,6 @@ function getWeekKey() {
     const id = extractGistId(c.gistId);
     if (!id || !c.token) return null; 
     try { 
-      // Force bypass cache using a query parameter.
-      // Removed custom Cache-Control headers to prevent Safari CORS "Load failed" errors.
       const r = await fetch(`https://api.github.com/gists/${id}?t=${Date.now()}`, { 
         headers: { 
           Authorization: `Bearer ${c.token}`,
@@ -762,13 +782,11 @@ function getWeekKey() {
       }
       
       const g = await r.json(); 
-      // Look for tasks.json, but gracefully fall back to the first available file if named differently
       const fileKey = Object.keys(g.files || {}).find(k => k.toLowerCase().includes('task')) || Object.keys(g.files || {})[0];
       const f = g.files?.[fileKey]; 
       
       if (!f || !f.content) throw new Error("Gist is empty");
 
-      // Auto-heal trailing commas left by iOS Shortcuts (e.g. `[{"task":"1"},]`)
       const safeJson = f.content.replace(/,\s*([\]}])/g, '$1');
       return JSON.parse(safeJson); 
     } catch (err) { 
@@ -825,12 +843,15 @@ function getWeekKey() {
   }
 
   /* ═══ TaskCard ═══ */
-  function TaskCard({ task, cats, onSwipeLeft, onSwipeRight, leftLabel, rightLabel, sortMode, onLongPress, onSortStart, currentTab }) {
+  function TaskCard({ task, cats, onSwipeLeft, onSwipeRight, leftLabel, rightLabel, sortMode, onLongPress, onSortStart, currentTab, leftHaptic, rightHaptic }) {
     const [dx, setDx] = useState(0);
     const [flying, setFlying] = useState(null);
     const sx = useRef(null); const drag = useRef(false); const cardRef = useRef(null);
     const lpT = useRef(null); const didLP = useRef(false); const TH = 80;
     const isMounted = useRef(true);
+    // Track whether we've already fired the threshold haptic in this drag
+    const thresholdFiredLeft = useRef(false);
+    const thresholdFiredRight = useRef(false);
 
     useEffect(() => {
       return () => { isMounted.current = false; };
@@ -842,6 +863,8 @@ function getWeekKey() {
         return;
       }
       sx.current = e.clientX; drag.current = false; didLP.current = false;
+      thresholdFiredLeft.current = false;
+      thresholdFiredRight.current = false;
       cardRef.current?.setPointerCapture(e.pointerId);
       lpT.current = setTimeout(() => { didLP.current = true; onLongPress?.(); }, 400);
     };
@@ -850,7 +873,23 @@ function getWeekKey() {
       if (sortMode || sx.current === null) return;
       const d = e.clientX - sx.current;
       if (!drag.current && Math.abs(d) > 5) { drag.current = true; clearTimeout(lpT.current); }
-      if (drag.current) setDx(d);
+      if (drag.current) {
+        setDx(d);
+        // Fire threshold haptic once per direction when crossing the commit threshold
+        if (d < -TH && !thresholdFiredLeft.current) {
+          thresholdFiredLeft.current = true;
+          thresholdFiredRight.current = false;
+          haptic.threshold();
+        } else if (d > TH && !thresholdFiredRight.current) {
+          thresholdFiredRight.current = true;
+          thresholdFiredLeft.current = false;
+          haptic.threshold();
+        } else if (Math.abs(d) < TH) {
+          // Reset if they pull back
+          thresholdFiredLeft.current = false;
+          thresholdFiredRight.current = false;
+        }
+      }
     };
 
     const onPU = () => {
@@ -860,6 +899,8 @@ function getWeekKey() {
       if (!drag.current) { setDx(0); sx.current = null; return; }
       sx.current = null;
       if (dx < -TH) { 
+        // Fire the completion haptic on release
+        if (leftHaptic) leftHaptic();
         setFlying("left"); 
         setTimeout(() => { 
           onSwipeLeft(); 
@@ -867,6 +908,7 @@ function getWeekKey() {
         }, 300); 
       } 
       else if (dx > TH) { 
+        if (rightHaptic) rightHaptic();
         setFlying("right"); 
         setTimeout(() => { 
           onSwipeRight(); 
@@ -1031,7 +1073,6 @@ function getWeekKey() {
   data-placeholder="Add details or notes..."
   onInput={e => {
   const raw = e.currentTarget.innerHTML;
-  // If it's empty or just a leftover <br>, store empty string
   setNotes(raw === "<br>" || raw === "<br/>" || !e.currentTarget.textContent.trim() ? "" : raw);
 }}
   onKeyDown={e => {
@@ -1079,7 +1120,6 @@ function getWeekKey() {
               {calDays.map(d => (
                 <div key={d.iso} className={`cal-day${dueISO === d.iso ? " selected" : ""}`} onClick={() => {
   setDueISO(d.iso);
-  // Sync quick-pill highlight to match the selected date
   const t = new Date(); t.setHours(12,0,0,0);
   const todayISO = toISO(t);
   const tmrw = new Date(t); tmrw.setDate(tmrw.getDate() + 1);
@@ -1126,12 +1166,10 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
   const [weeklyDraft, setWeeklyDraft] = useState(() => weeklyItems.join("\n"));
   const inputRef = useRef(null);
 
-  // Keep draft in sync if weeklyItems change externally
   useEffect(() => {
     setWeeklyDraft(weeklyItems.join("\n"));
   }, [weeklyItems]);
 
-  // Focus input when modal opens
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 350);
   }, [open]);
@@ -1188,7 +1226,6 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
           <button className="grocery-close" onClick={onClose}>×</button>
         </div>
 
-        {/* Weekly reset info + reset button */}
         <div className="grocery-reset-info">
           <div className="grocery-reset-dot" />
           <span>resets weekly</span>
@@ -1199,7 +1236,6 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
           }}>↺ reset now</button>
         </div>
 
-        {/* Weekly items editor */}
         <div className="grocery-weekly-toggle" onClick={() => setWeeklyOpen(o => !o)}>
           <span className="grocery-weekly-label">Edit weekly items</span>
           <span className={`grocery-weekly-chevron${weeklyOpen ? " open" : ""}`}>▾</span>
@@ -1217,7 +1253,6 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
           <button className="grocery-weekly-save" onClick={saveWeeklyItems}>Save Weekly Items</button>
         </div>
 
-        {/* List */}
         {isEmpty ? (
           <div className="grocery-empty">
             <div className="grocery-empty-emoji">🛒</div>
@@ -1242,7 +1277,6 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
           </div>
         )}
 
-        {/* Add item row */}
         <div className="grocery-add-row">
           <input
             ref={inputRef}
@@ -1279,12 +1313,10 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
     const [groceryItems, setGroceryItems] = useState(() => initGroceryState().items);
     const [weeklyItems, setWeeklyItems] = useState(() => initGroceryState().weeklyItems);
 
-    // Persist grocery state whenever it changes
     useEffect(() => {
       saveGrocery({ items: groceryItems, weeklyItems, weekKey: getWeekKey() });
     }, [groceryItems, weeklyItems]);
     
-    // Stable refs for background saving
     const tasksRef = useRef(tasks);
     const catsRef = useRef(cats);
     useEffect(() => { tasksRef.current = tasks; }, [tasks]);
@@ -1300,7 +1332,6 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
       setToast(msg); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToast(null), 2000);
     }, []);
 
-    // Cloud Puller (Explicit pull from github bypassing cache)
     const fetchCloud = useCallback(async (manual = false) => {
       if (!ghConfig.gistId || !ghConfig.token) return;
       if (manual) setSyncStatus("Pulling...");
@@ -1330,7 +1361,6 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
       }
     }, [ghConfig, showToast]);
 
-    // Initial Gist Load with Cache Busting
     useEffect(() => {
       if (ghConfig.gistId && ghConfig.token) {
         fetchCloud().then(() => { initialLoadDone.current = true; });
@@ -1339,7 +1369,6 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
       }
     }, [fetchCloud]);
 
-    // The Master Sync Function (handles UI saving and background beacon saving)
     const syncNow = useCallback(async (isBackground = false, forceShowStatus = false) => {
       const id = extractGistId(ghConfig.gistId);
       if (!id || !ghConfig.token) return;
@@ -1347,7 +1376,6 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
       const payload = { files: { "tasks.json": { content: JSON.stringify({tasks: tasksRef.current, cats: catsRef.current, ts: Date.now()}, null, 2) } } };
 
       if (isBackground) {
-        // If app is being closed, fire a background keepalive beacon request
         fetch(`https://api.github.com/gists/${id}`, {
           method: "PATCH",
           headers: { 
@@ -1385,7 +1413,6 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
       if (forceShowStatus) setTimeout(() => setSyncStatus(""), 3000);
     }, [ghConfig]);
 
-    // Save to LocalStorage immediately, save to cloud with 1.5s debounce ONLY if mutated
     useEffect(() => {
       saveLocal(tasks, cats, ghConfig);
       
@@ -1397,11 +1424,10 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
       return () => clearTimeout(timer);
     }, [tasks, cats, ghConfig, syncNow]);
 
-    // Save completely in the background if the user instantly swipes the app away
     useEffect(() => {
       const handleVis = () => {
         if (document.visibilityState === 'visible') {
-          fetchCloud(); // Auto pull new shortcut tasks when resuming
+          fetchCloud();
         } else if (document.visibilityState === 'hidden') {
           if (isDirty.current) { syncNow(true); isDirty.current = false; }
         }
@@ -1410,7 +1436,7 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
       
       window.addEventListener("visibilitychange", handleVis);
       window.addEventListener("pagehide", handleHide);
-      window.addEventListener("focus", () => fetchCloud()); // Extra fallback for iOS PWAs
+      window.addEventListener("focus", () => fetchCloud());
       return () => {
         window.removeEventListener("visibilitychange", handleVis);
         window.removeEventListener("pagehide", handleHide);
@@ -1449,8 +1475,6 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
         setTasks(prev => prev.map(t => {
       if (t.id !== editId) return t;
       if (reschedule && t.repeat && t.repeat !== "never") {
-        // One-time reschedule: move due date but keep the original repeat pattern intact
-        // The repeat field stays unchanged; we do NOT overwrite it with whatever was in the modal
         return { ...t, due };
       }
       return { ...t, ...(reschedule ? { due } : { title, notes, cat, due, repeat }) };
@@ -1496,8 +1520,8 @@ function GroceryModal({ open, onClose, items, setItems, weeklyItems, setWeeklyIt
     }, [tasks, tab, catFilter, getTab]);
     
     const todayTotal = tasks.filter(t => 
-  t.status !== "complete" && t.due <= todayStr  // all pending/overdue
-  || t.completedOn === todayStr                  // completed today specifically
+  t.status !== "complete" && t.due <= todayStr
+  || t.completedOn === todayStr
 ).length;
 
 const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
@@ -1523,6 +1547,17 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
       else mutate(id, "restore");
     };
 
+    // ── Per-tab haptic patterns ──
+    // left swipe action haptic (fires on release when committed)
+    const leftHapticForTab = tab === "today"
+      ? haptic.complete          // satisfying double-pulse for completing
+      : haptic.action;           // soft buzz for move-to-today / delete
+
+    // right swipe action haptic
+    const rightHapticForTab = tab === "today"
+      ? haptic.reschedule        // snappy single buzz for reschedule
+      : haptic.action;           // soft buzz for delete / restore
+
     const groups = useMemo(() => {
       if (tab !== "scheduled") return {};
       const g = {};
@@ -1531,11 +1566,9 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
         if (!g[k]) g[k] = [];
         g[k].push(t);
       });
-      // Sort tasks within each group by date ascending
       Object.keys(g).forEach(k => {
         g[k].sort((a, b) => (a.due || "").localeCompare(b.due || ""));
       });
-      // Order groups: tomorrow, this week, next week, then remaining date buckets ascending
       const PRIORITY = ["tomorrow", "this week", "next week"];
       const orderedKeys = [
         ...PRIORITY.filter(k => g[k]),
@@ -1607,6 +1640,8 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
           onLongPress={() => openEdit(t)}
           onSortStart={onSortStart(t.id)}
           currentTab={tab}
+          leftHaptic={leftHapticForTab}
+          rightHaptic={rightHapticForTab}
         />
       </div>
     ));
@@ -1615,8 +1650,6 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
       <div className="app">
         <div className="gradient-mesh"/>
         <div className="header">
-          {/* Secret invisible settings button */}
-          
           <div className="header-row">
             <div>
               <div className="greeting">Hey, Bel.</div>
@@ -1716,7 +1749,6 @@ const todayDone = tasks.filter(t => t.completedOn === todayStr).length;
         </div>
 
         <div className="bottom-area">
-  {/* Add task FAB */}
   <button className={`fab${modalOpen ? " open" : ""}`} onClick={modalOpen ? closeModal : openNew}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
